@@ -72,41 +72,71 @@ router.put('/api/user', uploadImageUser, async(req, res) => {
     const { username, email, password, phoneNumber, address, roleID } = req.body;
     const image = req.file ? req.file.filename : '';
     try {
-        // check email exists
         const existingUser = await User.findOne({ Email: email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'Email already exists!' });
+        if (!existingUser) {
+            deleteImageUser(image);
+            return res.status(404).json({ message: 'User not found' });
         }
 
-        if (!mongoose.isValidObjectId(roleID)) {
+        // check role valid
+        if (roleID && !mongoose.isValidObjectId(roleID)) {
             deleteImageUser(image);
             return res.status(400).json({ message: 'Invalid Role ID format' });
         }
 
-        const role = await Role.findById(roleID);
-
-        if (!role) {
-            deleteImageUser(image);
-            return res.status(400).json({ message: 'Role unvalid!' });
+        if (roleID) {
+            const role = await Role.findById(roleID);
+            if (!role) {
+                deleteImageUser(image);
+                return res.status(400).json({ message: 'Role unvalid!' });
+            }
         }
-        const createDate = getCurrentDateFormatted();
+        const updateDate = getCurrentDateFormatted();
 
-        // create new
-        const newUser = new User({
-            Username: username,
-            Email: email,
-            Password: password,
-            RoleID: roleID,
-            PhoneNumber: phoneNumber,
-            Address: address,
-            Image: image,
-            CreateAt: createDate,
-        });
+        // Update fields if have change
+        if (username) existingUser.Username = username;
+        if (password) existingUser.Password = password;
+        if (roleID) existingUser.RoleID = roleID;
+        if (phoneNumber) existingUser.PhoneNumber = phoneNumber;
+        if (address) existingUser.Address = address;
 
-        // Save user 
-        await newUser.save();
-        res.status(201).json({ message: 'User created successfully!', data: newUser });
+        // Update image if there are new image
+        if (image) {
+            if (existingUser.Image) {
+                deleteImageUser(existingUser.Image); // Xóa ảnh cũ
+            }
+            existingUser.Image = image;
+        }
 
+        // Update time 
+        existingUser.UpdateAt = updateDate;
+
+        // Save change
+        await existingUser.save();
+
+        res.status(200).json({ message: 'User updated successfully!', data: existingUser });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
+// Delete user by email
+router.delete('/api/user', async (req, res) => {
+    const { email } = req.body;
+    try {   
+        // Find and delete user by email
+        const user = await User.findOneAndDelete({ Email: email });
+        
+        if (!user) {
+            return res.status(404).json({ message: 'No user found with this email' });
+        } 
+
+        // if exist image then delete
+        if (user.Image) {
+            deleteImageUser(user.Image);
+        }
+        res.status(200).json({ message: 'User deleted successfully', data: user });
 
     } catch (error) {
         res.status(500).json({ message: 'Server error', error });

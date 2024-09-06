@@ -13,7 +13,9 @@ const UserSchema = new mongoose.Schema({
     Address: { type: String },
     Image: { type: String },
     PhoneNumber: { type: String },
-    CreateAt: {type: String, require: true}
+    CreateAt: {type: String, require: true},
+    UpdateAt: {type: String}
+
 }, {
     collection: "User"
 });
