@@ -1,25 +1,23 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-// Định nghĩa schema cho đối tượng User
+// Định nghĩa schema cho đối tượng Motel
 const MotelSchema = new mongoose.Schema({
-    Email: { type: String, required: true, unique: true },
-    Username: { type: String, required: true },
-    Password: { type: String, required: true },
-    RoleID: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Role'
-    },
-    Address: { type: String },
-    Image: { type: String },
-    PhoneNumber: { type: String },
-    CreateAt: {type: String, require: true},
-    UpdateAt: {type: String}
+    LandlordID: { type: mongoose.Schema.Types.ObjectId, ref: 'Landlord', required: true },
+    ListImages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Images' }],
+    Address: { type: String, require: true },
+    Description: { type: String },
+    TotalRating: { type: Number },
+    ListRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }],
+    CreateAt: { type: String, require: true },
+    CreateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', require: true },
+    UpdateAt: { type: String },
+    UpdateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
 
 }, {
     collection: "Motel"
 });
 
-// Tạo model User từ schema
+// Tạo model Model từ schema
 const Motel = mongoose.model('Motel', MotelSchema);
 
 // Xuất model để có thể sử dụng ở nơi khác trong ứng dụng

@@ -1,11 +1,10 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs'); // Thêm fs module
-const { log } = require('console');
 
 // Thư mục chứa ảnh
 const dirname = __dirname.replace('\\routes', '');
-const IMAGE_DIR = `${dirname}/resources/img-users`;
+const IMAGE_DIR = `${dirname}/resources/img-motels`;
 
 // Cấu hình lưu trữ cho multer
 const storage = multer.diskStorage({
@@ -18,8 +17,8 @@ const storage = multer.diskStorage({
     }
 });
 
-// Cấu hình multer để chỉ chấp nhận ảnh
-const uploadImageUser = multer({
+// Cấu hình multer để chỉ chấp nhận ảnh và upload nhiều tệp
+const uploadImagesMotel = multer({
     storage: storage,
     fileFilter: function(req, file, cb) {
         // Kiểm tra xem tệp tin có phải là ảnh không
@@ -28,13 +27,12 @@ const uploadImageUser = multer({
         }
         cb(null, true);
     }
-}).single('image');
-
+}).array('images', 7); // Cho phép upload tối đa 7 tệp tin với field là 'images'
 
 // Function để xóa ảnh
-function deleteImageUser(image) {
+function deleteImagesMotel(image) {
     if (image) {
-        const imagePath = path.join( IMAGE_DIR, image); // Kết hợp đường dẫn tới ảnh
+        const imagePath = path.join(IMAGE_DIR, image); // Kết hợp đường dẫn tới ảnh
         // Kiểm tra xem file có tồn tại không trước khi xóa
         if (fs.existsSync(imagePath)) {
             fs.unlink(imagePath, (err) => {
@@ -50,5 +48,5 @@ function deleteImageUser(image) {
     }
 }
 
-// Export uploadImageUser và deleteImage
-module.exports = { uploadImageUser, deleteImageUser };
+// Export uploadImagesUser và deleteImageUser
+module.exports = { uploadImagesMotel, deleteImagesMotel };

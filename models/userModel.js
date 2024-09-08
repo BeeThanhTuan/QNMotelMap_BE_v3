@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const Role = require('./roleModel')
 const bcrypt = require('bcryptjs');
 // Định nghĩa schema cho đối tượng User
 const UserSchema = new mongoose.Schema({

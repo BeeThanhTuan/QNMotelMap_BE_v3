@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const {Role} = require('../models/roleModel');
 const User = require('../models/userModel');
 const Landlord = require('../models/landlordModel');
-const { uploadImageUser, deleteImageUser } = require('./uploadImgUser');
+const { uploadImageUser, deleteImageUser } = require('../upload-image/uploadImgUser');
 const getCurrentDateFormatted = require('../getDate/getDateNow');
 
 // Get all users
@@ -25,7 +25,7 @@ router.get('/api/users', async (req, res) => {
 router.post('/api/user', uploadImageUser, async (req, res) => {
     const { username, email, password, phoneNumber, address, roleID } = req.body;
     const image = req.file ? req.file.filename : '';
-    
+    const createDate = getCurrentDateFormatted();
     try {
         // Kiểm tra email đã tồn tại hay chưa
         const existingUser = await User.findOne({ Email: email });
@@ -46,8 +46,25 @@ router.post('/api/user', uploadImageUser, async (req, res) => {
             return res.status(400).json({ message: 'Role not valid!' });
         }
 
-        // Lấy ngày hiện tại
-        const createDate = getCurrentDateFormatted();
+        // Nếu role là 'Landlord', tạo thêm landlord
+        if (role.RoleName === 'Landlord') {
+            if(phoneNumber){
+                const newLandlord = new Landlord({
+                    LandlordName: username,
+                    Email: email,
+                    Image: image,
+                    Address: address,
+                    PhoneNumber: phoneNumber,
+                    CreateAt: createDate,
+                });
+
+                await newLandlord.save();
+            }
+            else{
+                deleteImageUser(image);
+                return res.status(400).json({ message: 'Phone Number is required!' });
+            }
+        }
 
         // Tạo người dùng mới
         const newUser = new User({
@@ -64,18 +81,6 @@ router.post('/api/user', uploadImageUser, async (req, res) => {
         // Lưu người dùng
         await newUser.save();
 
-        // Nếu role là 'Landlord', tạo thêm landlord
-        if (role.RoleName === 'Landlord') {
-            const newLandlord = new Landlord({
-                LandlordName: username,
-                Email: email,
-                Image: image,
-                Address: address,
-                PhoneNumber: phoneNumber,
-                CreateAt: createDate,
-            });
-            await newLandlord.save();
-        }
 
         res.status(201).json({ message: 'User created successfully!', data: newUser });
 
@@ -127,7 +132,7 @@ router.put('/api/user', uploadImageUser, async (req, res) => {
             }
 
             // Kiểm tra nếu vai trò ban đầu là Landlord và vai trò mới không phải Landlord
-            const oldRole = await Role.findById(existingUser.RoleID); // Vai trò cũ của người dùng
+            const oldRole = await Role.findById(existingUser.RoleID); 
             if (oldRole && oldRole.RoleName === 'Landlord' && role.RoleName !== 'Landlord') {
                 // Xóa thông tin Landlord nếu người dùng chuyển từ Landlord sang vai trò khác
                 await Landlord.findOneAndDelete({ Email: email });

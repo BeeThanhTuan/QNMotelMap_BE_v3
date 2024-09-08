@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-// Định nghĩa schema cho đối tượng User
+// Định nghĩa schema cho đối tượng Landlord
 const LandlordSchema = new mongoose.Schema({
     Email: { type: String, required: true, unique: true },
     LandlordName: { type: String, required: true },
@@ -8,12 +8,12 @@ const LandlordSchema = new mongoose.Schema({
     Address:{type: String},
     CreateAt: {type: String, require: true},
     UpdateAt: {type: String},
-    UpdateBy: {type: mongoose.Schema.Types.ObjectId}
+    UpdateBy: {type: mongoose.Schema.Types.ObjectId, ref: 'User'}
 }, {
     collection: "Landlord"
 });
 
-// Tạo model User từ schema
+// Tạo model Landlord từ schema
 const Landlord = mongoose.model('Landlord', LandlordSchema);
 
 // Xuất model để có thể sử dụng ở nơi khác trong ứng dụng

@@ -27,7 +27,7 @@ app.use(bodyParser.urlencoded({ extended: true}));
 connectDB();
 
 
-// app.use('/', authRoutes);
+app.use('/', authRoutes);
 app.use('/', roleRoutes);
 app.use('/', userRoutes);
 
