@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+
 // Định nghĩa schema cho đối tượng Motel
 const MotelSchema = new mongoose.Schema({
     LandlordID: { type: mongoose.Schema.Types.ObjectId, ref: 'Landlord', required: true },
@@ -11,7 +12,6 @@ const MotelSchema = new mongoose.Schema({
     CreateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', require: true },
     UpdateAt: { type: String },
     UpdateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-
 
 }, {
     collection: "Motel"

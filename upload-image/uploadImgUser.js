@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs'); // Thêm fs module
 
 // Thư mục chứa ảnh
-const dirname = __dirname.replace('\\routes', '');
+const dirname = __dirname.replace('\\upload-image', '');
 const IMAGE_DIR = `${dirname}/resources/img-users`;
 
 // Cấu hình lưu trữ cho multer

@@ -10,6 +10,7 @@ const connectDB = require('./connectDB/connectDB.js');
 const authRoutes = require('./routes/authRoutes.js');
 const roleRoutes = require('./routes/roleRoutes.js');
 const userRoutes = require('./routes/userRoutes.js');
+const motelRoutes = require('./routes/motelRoutes.js');
 
 
 
@@ -30,8 +31,7 @@ connectDB();
 app.use('/', authRoutes);
 app.use('/', roleRoutes);
 app.use('/', userRoutes);
-
-
+app.use('/', motelRoutes);
 
 
 app.listen(port, () => {
