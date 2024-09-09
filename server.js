@@ -11,6 +11,8 @@ const authRoutes = require('./routes/authRoutes.js');
 const roleRoutes = require('./routes/roleRoutes.js');
 const userRoutes = require('./routes/userRoutes.js');
 const motelRoutes = require('./routes/motelRoutes.js');
+const roomRoutes = require('./routes/roomRoutes.js');
+
 
 
 
@@ -32,6 +34,8 @@ app.use('/', authRoutes);
 app.use('/', roleRoutes);
 app.use('/', userRoutes);
 app.use('/', motelRoutes);
+app.use('/', roomRoutes);
+
 
 
 app.listen(port, () => {

@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const Images = require('../models/imagesModel');
 const {Role} = require('../models/roleModel');
 const User = require('../models/userModel');
@@ -96,7 +95,7 @@ router.post('/api/motel', uploadImagesMotel, async (req, res) => {
 });
 
 
-// Update motel by ID
+// update motel by ID
 router.put('/api/motel/:id', uploadImagesMotel, async (req, res) => {
     const id  = req.params.id;
     const { userID, landlordID, location, address, wardCommune, description, convenient, electricityBill, waterBill, wifiBill } = req.body;

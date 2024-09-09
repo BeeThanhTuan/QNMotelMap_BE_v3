@@ -4,7 +4,6 @@ const mongoose = require('mongoose');
 const MotelSchema = new mongoose.Schema({
     Location: { type: String, require: true },
     LandlordID: { type: mongoose.Schema.Types.ObjectId, ref: 'Landlord', required: true },
-    ListImages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Images' }],
     Address:{ type: String, require: true },
     WardCommune:{ type: String, require: true },
     Description: { type: String },
@@ -13,6 +12,8 @@ const MotelSchema = new mongoose.Schema({
     ElectricityBill: { type: Number },
     WaterBill:{ type: Number },
     WifiBill:{ type: Number },
+    ListImages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Images' }],
+    ListComments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
     ListRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }],
     CreateAt: { type: String, require: true },
     CreateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', require: true },
