@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs'); // Thêm fs module
+const fs = require('fs');
+const crypto = require('crypto');
 
 // Thư mục chứa ảnh
 const dirname = __dirname.replace('\\upload-image', '');
@@ -12,8 +13,8 @@ const storage = multer.diskStorage({
         cb(null, IMAGE_DIR); // Thư mục chứa ảnh
     },
     filename: function(req, file, cb) {
-        // Tạo tên tệp tin duy nhất bằng cách thêm thời gian hiện tại vào tên tệp tin gốc
-        cb(null, Date.now() + path.extname(file.originalname));
+        const uniqueSuffix = crypto.randomBytes(4).toString('hex'); // Tạo chuỗi ngẫu nhiên
+        cb(null, `${Date.now()}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
 });
 
@@ -27,13 +28,12 @@ const uploadImagesMotel = multer({
         }
         cb(null, true);
     }
-}).array('images', 7); // Cho phép upload tối đa 7 tệp tin với field là 'images'
+}).array('images', 7);
 
 // Function để xóa ảnh
 function deleteImagesMotel(image) {
     if (image) {
         const imagePath = path.join(IMAGE_DIR, image); // Kết hợp đường dẫn tới ảnh
-        // Kiểm tra xem file có tồn tại không trước khi xóa
         if (fs.existsSync(imagePath)) {
             fs.unlink(imagePath, (err) => {
                 if (err) {
@@ -48,5 +48,5 @@ function deleteImagesMotel(image) {
     }
 }
 
-// Export uploadImagesUser và deleteImageUser
+// Export uploadImagesMotel và deleteImagesMotel
 module.exports = { uploadImagesMotel, deleteImagesMotel };
