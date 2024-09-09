@@ -80,8 +80,6 @@ router.post('/api/motel', uploadImagesMotel, async (req, res) => {
             const newImage = new Images({
                 MotelID: savedMotel._id,
                 LinkImage: image,
-                CreateAt: currentDate,
-                CreateBy: userID,
             });
             const savedImage = await newImage.save();
             imageIDs.push(savedImage._id); // Lưu lại _id của ảnh
@@ -97,12 +95,114 @@ router.post('/api/motel', uploadImagesMotel, async (req, res) => {
     }
 });
 
+
+// Update motel by ID
+router.put('/api/motel/:id', uploadImagesMotel, async (req, res) => {
+    const id  = req.params.id;
+    const { userID, landlordID, location, address, wardCommune, description, convenient, electricityBill, waterBill, wifiBill } = req.body;
+    const currentDate = getCurrentDateFormatted();
+    try {
+        const images = req.files.map(file => file.filename);
+        // Tìm kiếm Motel theo ID
+        const existingMotel = await Motel.findById(id);
+        if (!existingMotel) {
+            deleteImages(images);
+            return res.status(404).json({ message: 'Motel does not exist!' });
+        }
+
+        // Kiểm tra user có tồn tại không
+        const existingUser = await User.findById(userID);
+        if (!existingUser) {
+            deleteImages(images);
+            return res.status(404).json({ message: 'User does not exist!' });
+        }
+
+        // Kiểm tra quyền của user
+        const role = await Role.findById(existingUser.RoleID);
+        if (role) {
+            if (role.RoleName !== 'Admin' && role.RoleName !== 'Landlord') {
+                deleteImages(images);
+                return res.status(400).json({ message: 'Role no access!' });
+            }
+        } else {
+            deleteImages(images);
+            return res.status(400).json({ message: 'Role not valid!' });
+        }
+
+        // Kiểm tra landlord có tồn tại không
+        const existingLandlord = await Landlord.findById(landlordID);
+        if (!existingLandlord) {
+            deleteImages(images);
+            return res.status(404).json({ message: 'Landlord does not exist!' });
+        }
+
+        // Danh sách các trường có thể được cập nhật
+        const fieldsToUpdate = {
+            Location: location,
+            LandlordID: landlordID,
+            Address: address,
+            WardCommune: wardCommune,
+            Description: description,
+            Convenient: convenient,
+            ElectricityBill: electricityBill,
+            WaterBill: waterBill,
+            WifiBill: wifiBill
+        };
+
+        // Cập nhật các trường có giá trị mới
+        Object.keys(fieldsToUpdate).forEach(key => {
+            if (fieldsToUpdate[key] !== undefined) {
+                existingMotel[key] = fieldsToUpdate[key];
+            }
+        });
+
+        // Cập nhật thông tin ngày và người chỉnh sửa
+        existingMotel.UpdateAt = currentDate;
+        existingMotel.UpdateBy = userID;
+
+        // Nếu có ảnh mới tải lên
+        if (req.files && req.files.length > 0) {
+            // Lưu danh sách ảnh mới vào cơ sở dữ liệu và cập nhật danh sách ảnh trong motel
+            const imageIDs = [];
+            for (const image of images) {
+                const newImage = new Images({
+                    MotelID: existingMotel._id,
+                    LinkImage: image,
+                });
+                const savedImage = await newImage.save();
+                imageIDs.push(savedImage._id);
+            }
+
+            // Xoá các ảnh cũ và cập nhật danh sách ảnh mới trong motel
+            const oldImageIds = existingMotel.ListImages.map(id => id.toHexString());
+            const oldImages = await Promise.all(oldImageIds.map(async (id) => {
+                const image = await Images.findById(id);
+                return image ? image.LinkImage : null;
+            }));
+            if (oldImages.length > 0) {
+                deleteImages(oldImages); // Xóa ảnh cũ khỏi hệ thống tệp
+                await Images.deleteMany({ _id: { $in: oldImageIds } }); // Xóa ảnh cũ khỏi database
+            }
+            // Cập nhật ListImages với danh sách ảnh mới
+            existingMotel.ListImages = imageIDs;
+        }
+
+        // Lưu lại các thay đổi
+        await existingMotel.save();
+
+        res.status(200).json({ message: 'Motel updated successfully', data: existingMotel });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
+
 //delete model by id
 router.delete('/api/motel/:id', async (req, res) => {
     const id = req.params.id; 
     try {
         // Tìm motel theo ID
-        const existingMotel = await Motel.findById(id); // Populate để lấy danh sách các ảnh liên quan
+        const existingMotel = await Motel.findById(id); 
         if (!existingMotel) {
             return res.status(404).json({ message: 'Motel does not exist!' });
         }
@@ -121,6 +221,7 @@ router.delete('/api/motel/:id', async (req, res) => {
 
         if (imagesToDelete.length > 0) {
             deleteImages(imagesToDelete);
+            await Images.deleteMany({ _id: { $in: imageIds } });
         }
 
         // Xoá motel
