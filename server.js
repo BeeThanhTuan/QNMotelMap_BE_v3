@@ -12,6 +12,8 @@ const roleRoutes = require('./routes/roleRoutes.js');
 const userRoutes = require('./routes/userRoutes.js');
 const motelRoutes = require('./routes/motelRoutes.js');
 const roomRoutes = require('./routes/roomRoutes.js');
+const ratingRoutes = require('./routes/ratingRoutes.js');
+
 
 
 
@@ -35,6 +37,8 @@ app.use('/', roleRoutes);
 app.use('/', userRoutes);
 app.use('/', motelRoutes);
 app.use('/', roomRoutes);
+app.use('/', ratingRoutes);
+
 
 
 

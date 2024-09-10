@@ -93,4 +93,46 @@ router.post('/api/room', uploadImagesRoom, async (req, res) => {
     }
 });
 
+//delete room by id
+router.delete('/api/room/:id', async (req, res) => {
+    const id = req.params.id; 
+    try {
+        // Tìm room theo ID
+        const existingRoom = await Room.findById(id); 
+        if (!existingRoom) {
+            return res.status(404).json({ message: 'Room does not exist!' });
+        }
+
+        // Tìm motel chứa room
+        const existingMotel = await Motel.findById(existingRoom.MotelID);
+        if (!existingMotel) {
+            return res.status(404).json({ message: 'Motel does not exist!' });
+        }
+
+        // Xóa room ID khỏi ListRooms của Motel
+        existingMotel.ListRooms = existingMotel.ListRooms.filter(roomID => !roomID.equals(id));
+        await existingMotel.save();
+
+        // Xoá các ảnh liên quan đến room trước khi xoá room
+        const imageIds = existingRoom.ListImages.map(id => id.toHexString());
+        const imagesToDelete = await Promise.all(imageIds.map(async (id) => {
+            const image = await Images.findById(id);
+            return image ? image.LinkImage : null;
+        }));
+
+        if (imagesToDelete.length > 0) {
+            deleteImages(imagesToDelete);
+            await Images.deleteMany({ _id: { $in: imageIds } });
+        }
+
+        // Xoá room
+        await Room.findByIdAndDelete(id);
+        res.status(200).json({ message: 'Room deleted successfully' });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
+
 module.exports = router;
