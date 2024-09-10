@@ -13,6 +13,8 @@ const userRoutes = require('./routes/userRoutes.js');
 const motelRoutes = require('./routes/motelRoutes.js');
 const roomRoutes = require('./routes/roomRoutes.js');
 const ratingRoutes = require('./routes/ratingRoutes.js');
+const favoriteMotelRoutes = require('./routes/favoriteMotelRoutes.js');
+
 
 
 
@@ -38,6 +40,7 @@ app.use('/', userRoutes);
 app.use('/', motelRoutes);
 app.use('/', roomRoutes);
 app.use('/', ratingRoutes);
+app.use('/', favoriteMotelRoutes);
 
 
 
