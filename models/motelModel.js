@@ -14,7 +14,7 @@ const MotelSchema = new mongoose.Schema({
     WifiBill:{ type: Number },
     ListImages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Images' }],
     ListRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }],
-    ListRatings: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
+    ListRatings: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Rating' }],
     CreateAt: { type: String, require: true },
     CreateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', require: true },
     UpdateAt: { type: String },

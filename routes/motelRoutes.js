@@ -14,6 +14,54 @@ function deleteImages(images){
     });
 }
 
+// get all motels
+router.get('/api/motels', async (req, res) => {
+    try {
+        const motels = await Motel.find()
+            .populate('ListImages')
+            .populate('ListRooms')  
+            .populate('ListRatings') 
+            .populate('LandlordID')
+            .populate('CreateBy')
+            .populate('UpdateBy');
+
+        if (motels.length <= 0) {
+            return res.status(404).json({ message: 'Motels not found!' });
+        }
+
+        res.status(200).json({ message: 'Get all motels successfully', data: motels });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
+// get  motel by ID
+router.get('/api/motel/:id', async (req, res) => {
+    const id = req.params.id;
+    try {
+        // Tìm motel theo ID và populate các trường liên quan
+        const existingMotel = await Motel.findById(id)
+            .populate('ListImages')
+            .populate('ListRooms')  
+            .populate('ListRatings') 
+            .populate('LandlordID')
+            .populate('CreateBy')
+            .populate('UpdateBy');
+
+
+
+        if (!existingMotel) {
+            return res.status(404).json({ message: 'Motel does not exist!' });
+        }
+
+        res.status(200).json({ message: 'Get motel by id successfully', data: existingMotel });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
 //add new motel
 router.post('/api/motel', uploadImagesMotel, async (req, res) => {
     const { userID, landlordID, location, address, wardCommune, description, convenient, electricityBill, waterBill, wifiBill } = req.body;
