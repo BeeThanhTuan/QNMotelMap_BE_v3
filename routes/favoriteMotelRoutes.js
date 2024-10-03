@@ -22,6 +22,7 @@ router.get('/api/favorite/:id', async (req, res) => {
         res.status(500).json({ message: 'Server error', error });
     }
 });
+
 //add new motel into favorites list
 router.post('/api/favorite', async (req, res) => {
     const { userID, motelID } = req.body;

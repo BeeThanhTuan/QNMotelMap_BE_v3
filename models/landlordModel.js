@@ -6,6 +6,7 @@ const LandlordSchema = new mongoose.Schema({
     Image: { type: String},
     PhoneNumber:{type: String, required: true},
     Address:{type: String},
+    ListMotel: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Motel' }],
     CreateAt: {type: String, require: true},
     UpdateAt: {type: String},
     UpdateBy: {type: mongoose.Schema.Types.ObjectId, ref: 'User'}

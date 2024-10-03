@@ -22,6 +22,7 @@ router.get('/api/room/:id', async (req, res) => {
         // Tìm room theo ID và populate các trường liên quan
         const existingRoom = await Room.findById(id)
             .populate('ListImages')
+            .populate('ListConvenient')
             .populate('CreateBy')  
             .populate('UpdateBy');
 
@@ -38,7 +39,7 @@ router.get('/api/room/:id', async (req, res) => {
 
 //add new room
 router.post('/api/room', uploadImagesRoom, async (req, res) => {
-    const { userID, motelID, description, convenient, floor, area, price } = req.body;
+    const { userID, motelID, description, listConvenient, floor, area, price } = req.body;
     const currentDate = getCurrentDateFormatted();
     try {
         // Kiểm tra xem ảnh có được upload không
@@ -78,7 +79,7 @@ router.post('/api/room', uploadImagesRoom, async (req, res) => {
             MotelID: existingMotel._id,
             Description: description,
             Floor: floor,
-            Convenient: convenient,
+            ListConvenient: listConvenient,
             Area: area,
             Price: price,
             Status: false, 
