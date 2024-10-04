@@ -41,6 +41,8 @@ router.get('/api/room/:id', async (req, res) => {
 router.post('/api/room', uploadImagesRoom, async (req, res) => {
     const { userID, motelID, description, listConvenient, floor, area, price } = req.body;
     const currentDate = getCurrentDateFormatted();
+    console.log(req.body);
+    
     try {
         // Kiểm tra xem ảnh có được upload không
         if (!req.files || req.files.length === 0) {

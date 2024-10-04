@@ -5,6 +5,7 @@ const {Role} = require('../models/roleModel');
 const User = require('../models/userModel');
 const Landlord = require('../models/landlordModel');
 const Motel = require('../models/motelModel');
+const Room = require('../models/roomModel');
 const { uploadImagesMotel, deleteImagesMotel } = require('../upload-image/uploadImgMotel');
 const getCurrentDateFormatted = require('../getDate/getDateNow');
 const getMotelDataFilter = require('../filterData/motelFilter')
@@ -20,10 +21,8 @@ router.get('/api/motels', async (req, res) => {
         // Lấy danh sách tất cả các motels
         const motels = await Motel.find()
             .populate('ListImages')
-            .populate('ListRooms')  
             .populate('ListRatings')
             .populate('ListConvenient')
-            .populate('LandlordID')
             .populate('CreateBy')
             .populate('UpdateBy');
 
@@ -346,12 +345,12 @@ router.get('/api/motels/filter', async (req, res) => {
         addressSearch, 
         motelHasRoomAvailable: motelHasRoomAvailable === 'true', 
         noLiveWithLandlord: noLiveWithLandlord === 'true',
+        desiredPrice: parseFloat(desiredPrice),
         distanceLess1Km: distanceLess1Km === 'true',
         haveMezzanine: haveMezzanine === 'true',
         haveToilet: haveToilet === 'true',
         havePlaceToCook: havePlaceToCook === 'true',
-        haveAirConditioner: haveAirConditioner === 'true',
-        desiredPrice: parseFloat(desiredPrice)
+        haveAirConditioner: haveAirConditioner === 'true'
     };
 
     const query = {};
@@ -360,20 +359,20 @@ router.get('/api/motels/filter', async (req, res) => {
     if (filters.addressSearch) {
         query.WardCommune = { $regex: filters.addressSearch, $options: 'i' };
     }
-  
-    // Lọc nhà trọ có giá dưới hoặc bằng desiredPrice
-    if (filters.desiredPrice) {
-        query.Price = { $lte: filters.desiredPrice };
-    }
 
     // Lọc nhà trọ không sống chung với chủ
     if (filters.noLiveWithLandlord) {
         query.LiveWithLandlord = false;
     }
-  
+    
     // Lọc nhà trọ với Distance dưới 1 km
     if (filters.distanceLess1Km) {
-        query.Distance = { $lte: 1 };
+        query.Distance = { $lte: 1.0 };
+    }
+    
+    // Lọc nhà trọ có giá dưới hoặc bằng desiredPrice
+    if (filters.desiredPrice) {
+        query.Price = { $lte: filters.desiredPrice };
     }
 
     // Tạo một mảng chứa các điều kiện tìm kiếm cho ListConvenient
@@ -400,16 +399,32 @@ router.get('/api/motels/filter', async (req, res) => {
     } 
 
     try {
+        let motelIdsWithRoomsAvailable = [];
+         // Nếu cần lọc theo nhà trọ có phòng trống (liên quan đến bảng Rooms)
+         if (filters.motelHasRoomAvailable) {
+            const rooms = await Room.find({ Status: false }); 
+
+            // Lấy tất cả các motelId từ danh sách Rooms
+            motelIdsWithRoomsAvailable = rooms.map(room => room.MotelID);
+
+            // Loại bỏ các motelId bị trùng lặp bằng cách sử dụng Set
+            motelIdsWithRoomsAvailable = [...new Set(motelIdsWithRoomsAvailable)];
+
+            // Nếu không có nhà trọ nào có phòng trống, trả về kết quả rỗng
+            if (motelIdsWithRoomsAvailable.length === 0) {
+                return res.status(404).json({ message: 'No motels with available rooms found!' });
+            }
+
+            // Thêm điều kiện lọc vào truy vấn `Motel` dựa trên danh sách các motelId có phòng trống
+            query._id = { $in: motelIdsWithRoomsAvailable };
+        }
         // Thực hiện truy vấn với điều kiện động
         const motelsFirstFilter = await Motel.find(query)
             .populate('ListImages')
-            .populate('ListRooms')  
             .populate('ListRatings')
             .populate('ListConvenient')
-            .populate('LandlordID')
             .populate('CreateBy')
             .populate('UpdateBy');
-         
 
         //Lọc theo ListConvenient nếu có điều kiện
         const motelsLastFilter = conditions.length > 0 
