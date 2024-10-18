@@ -15,16 +15,40 @@ function deleteImages(images){
     });
 }
 
-// get room by ID
-router.get('/api/room/:id', async (req, res) => {
-    const id = req.params.id;
+// get room by ID motel
+router.get('/api/rooms/:idMotel', async (req, res) => {
+    const id = req.params.idMotel;
+    try {
+        // Tìm room theo ID và populate các trường liên quan
+        const existingMotel = await Motel.findById(id)
+        .populate({
+            path: 'ListRooms', // Populate the ListRooms field
+            populate: [
+                { path: 'ListImages' },       
+                { path: 'ListConvenient'}
+            ],
+            options: { sort: { Floor: 1 } }
+        });
+
+        if (!existingMotel) {
+            return res.status(404).json({ message: 'Room does not exist!' });
+        }
+
+        res.status(200).json({ message: 'Get room by id successfully', data: existingMotel.ListRooms });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
+// get room by ID rom
+router.get('/api/room/:idRoom', async (req, res) => {
+    const id = req.params.idRoom;
     try {
         // Tìm room theo ID và populate các trường liên quan
         const existingRoom = await Room.findById(id)
             .populate('ListImages')
             .populate('ListConvenient')
-            .populate('CreateBy')  
-            .populate('UpdateBy');
 
         if (!existingRoom) {
             return res.status(404).json({ message: 'Room does not exist!' });

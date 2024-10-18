@@ -5,6 +5,7 @@ const MotelSchema = new mongoose.Schema({
     Location: { type: String, require: true },
     LandlordID: { type: mongoose.Schema.Types.ObjectId, ref: 'Landlord', required: true },
     Address:{ type: String, require: true },
+    NameMotel:{ type: String},
     WardCommune:{ type: String, require: true },
     Description: { type: String },
     TotalRating: { type: Number },
@@ -19,9 +20,9 @@ const MotelSchema = new mongoose.Schema({
     ListRatings: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Rating' }],
     ListConvenient: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Convenient' }],
     CreateAt: { type: String, require: true },
-    CreateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', require: true },
+    CreateBy:  { type: String },
     UpdateAt: { type: String },
-    UpdateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    UpdateBy: { type: String },
 
 }, {
     collection: "Motel"

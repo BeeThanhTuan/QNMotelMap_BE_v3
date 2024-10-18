@@ -23,8 +23,6 @@ router.get('/api/motels', async (req, res) => {
             .populate('ListImages')
             .populate('ListRatings')
             .populate('ListConvenient')
-            .populate('CreateBy')
-            .populate('UpdateBy');
 
         if (motels.length <= 0) {
             return res.status(404).json({ message: 'Motels not found!' });
@@ -68,10 +66,7 @@ router.get('/api/motel/:id', async (req, res) => {
             .populate('ListImages')
             .populate('ListRooms')
             .populate('ListRatings')
-            .populate('LandlordID')
             .populate('ListConvenient')
-            .populate('CreateBy')
-            .populate('UpdateBy');
 
         if (!existingMotel) {
             return res.status(404).json({ message: 'Motel does not exist!' });
@@ -100,7 +95,7 @@ router.get('/api/motel/:id', async (req, res) => {
 
 //add new motel
 router.post('/api/motel', uploadImagesMotel, async (req, res) => {
-    const { userID, landlordID, location, address, wardCommune, description, listConvenient, electricityBill, waterBill, wifiBill, distance, price, liveWithLandlord } = req.body;
+    const { userID, nameMotel , landlordID, location, address, wardCommune, description, listConvenient, electricityBill, waterBill, wifiBill, distance, price, liveWithLandlord } = req.body;
     const currentDate = getCurrentDateFormatted();
     try { 
         if (!req.files || req.files.length === 0) {
@@ -141,6 +136,7 @@ router.post('/api/motel', uploadImagesMotel, async (req, res) => {
 
         // Tạo mới đối tượng Motel
         const newMotel = new Motel({
+            NameMotel: nameMotel,
             Location: location,
             LandlordID: landlordID,
             Address: address,
@@ -328,18 +324,20 @@ router.delete('/api/motel/:id', async (req, res) => {
 });
 
 // filter motel 
-router.get('/api/motels/filter', async (req, res) => {
+router.get('/api/motels/filters', async (req, res) => {
     const {
         addressSearch,
         motelHasRoomAvailable,
         noLiveWithLandlord,
         distanceLess1Km,
+        desiredDistance,
         desiredPrice,
         haveMezzanine,
         haveToilet,
         havePlaceToCook,
         haveAirConditioner
-    } = req.body;
+    } = req.query;
+    
     
     const filters = {
         addressSearch, 
@@ -347,17 +345,31 @@ router.get('/api/motels/filter', async (req, res) => {
         noLiveWithLandlord: noLiveWithLandlord === 'true',
         desiredPrice: parseFloat(desiredPrice),
         distanceLess1Km: distanceLess1Km === 'true',
+        desiredDistance: parseFloat(desiredDistance),
         haveMezzanine: haveMezzanine === 'true',
         haveToilet: haveToilet === 'true',
         havePlaceToCook: havePlaceToCook === 'true',
         haveAirConditioner: haveAirConditioner === 'true'
     };
-
+    
     const query = {};
   
     // Lọc theo addressSearch dựa trên WardCommune
     if (filters.addressSearch) {
-        query.WardCommune = { $regex: filters.addressSearch, $options: 'i' };
+        // Kiểm tra xem addressSearch có chứa dấu phẩy không
+        const [addressPart, wardCommunePart] = filters.addressSearch.split(',').map(part => part.trim());
+        // Nếu tìm thấy dấu phẩy, tìm theo từng phần riêng
+        if (wardCommunePart) {
+            query.$and = [
+                { Address: { $regex: addressPart, $options: 'i' } },  
+                { WardCommune: { $regex: wardCommunePart, $options: 'i' } } 
+            ];
+        } else {
+            query.$or = [
+                { Address: { $regex: addressPart, $options: 'i' } },  
+                { WardCommune: { $regex: addressPart, $options: 'i' } }
+            ];
+        }
     }
 
     // Lọc nhà trọ không sống chung với chủ
@@ -368,6 +380,11 @@ router.get('/api/motels/filter', async (req, res) => {
     // Lọc nhà trọ với Distance dưới 1 km
     if (filters.distanceLess1Km) {
         query.Distance = { $lte: 1.0 };
+    }
+
+    // Lọc nhà trọ có giá dưới hoặc bằng desiredDistance
+    if (!filters.distanceLess1Km) {
+        query.Distance = { $lte: filters.desiredDistance };
     }
     
     // Lọc nhà trọ có giá dưới hoặc bằng desiredPrice
@@ -398,6 +415,7 @@ router.get('/api/motels/filter', async (req, res) => {
         conditions.push({ NameConvenient: 'Điều hoà' });
     } 
 
+
     try {
         let motelIdsWithRoomsAvailable = [];
          // Nếu cần lọc theo nhà trọ có phòng trống (liên quan đến bảng Rooms)
@@ -423,8 +441,6 @@ router.get('/api/motels/filter', async (req, res) => {
             .populate('ListImages')
             .populate('ListRatings')
             .populate('ListConvenient')
-            .populate('CreateBy')
-            .populate('UpdateBy');
 
         //Lọc theo ListConvenient nếu có điều kiện
         const motelsLastFilter = conditions.length > 0 
@@ -437,9 +453,6 @@ router.get('/api/motels/filter', async (req, res) => {
             )
             : motelsFirstFilter;
 
-        if (motelsLastFilter.length <= 0) {
-            return res.status(404).json({ message: 'Motels not found!' });
-        }
 
         // Tạo một mảng mới chứa các motels với field 'totalStar'
         const motelsWithTotalStar = motelsLastFilter.map(motel => {
@@ -468,6 +481,27 @@ router.get('/api/motels/filter', async (req, res) => {
     }
 });
 
+// Get list ward commune motel
+router.get('/api/list-ward-commune', async (req, res) => {
+    try {
+        // Find motel by ID and populate the related fields
+        let listWardCommune = []
+        let listStreet = []
+        const motels = await Motel.find()
+        listWardCommune = motels.map(motel => motel.WardCommune)
+        listStreet = motels.map(motel=> `${motel.Address}, ${motel.WardCommune}`)
+        listStreet = listStreet.map(street => street.replace(/^[^a-zA-ZÀ-ỹ]+|[^a-zA-ZÀ-ỹ]+$/g, '').trim());
+        listWardCommune = [...new Set(listWardCommune)]
+        listStreet = [...new Set(listStreet)]
+        let listStreetWardCommune = [...listWardCommune, ...listStreet]
+
+
+        res.status(200).json({ message: 'Get list ward commune successfully', data: listStreetWardCommune});
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
   
 
 
