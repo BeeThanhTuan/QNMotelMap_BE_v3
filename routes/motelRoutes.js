@@ -407,7 +407,7 @@ router.get('/api/motels/filters', async (req, res) => {
 
     // Tìm trong ListConvenient có nơi nấu ăn
     if (filters.havePlaceToCook) {
-        conditions.push({ NameConvenient: 'Nơi nấu ăn' });
+        conditions.push({ NameConvenient: 'Kệ bếp' });
     }
 
     // Tìm trong ListConvenient có điều hòa
@@ -502,6 +502,33 @@ router.get('/api/list-ward-commune', async (req, res) => {
         res.status(500).json({ message: 'Server error', error });
     }
 });
+
+// Count motels by ward commune 
+router.get('/api/count-motels-by-ward-commune', async (req, res) => {
+    try {
+        // Tìm tất cả các motels và nhóm theo WardCommune, đồng thời đếm số lượng trong mỗi nhóm
+        const countByWardCommune = await Motel.aggregate([
+            {
+                $group: {
+                    _id: "$WardCommune", // Nhóm theo trường WardCommune
+                    Count: { $sum: 1 } // Đếm số lượng motels trong mỗi nhóm
+                }
+            },
+            {
+                $project: {
+                    _id: 0, // Không hiển thị _id trong kết quả
+                    WardCommune: "$_id",
+                    Count: 1
+                }
+            }
+        ]);
+
+        res.status(200).json({ message: 'Get list ward commune successfully', data: countByWardCommune });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
   
 
 

@@ -3,6 +3,22 @@ const router = express.Router();
 const Convenient =  require('../models/convenientModel');
 const { uploadImageConvenient, deleteImageConvenient } = require('../upload-image/uploadImgConvenient');
 
+
+// get all
+router.get('/api/convenient', async (req, res) => {
+    try {
+        const convenient = await Convenient.find()
+
+        if (convenient.length <=0 ) {
+            return res.status(404).json({ message: 'Convenient not found!' });
+        }
+        res.status(200).json({ message: 'Get list convenient successfully', data: convenient});
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
 //add new convenient
 router.post('/api/convenient', uploadImageConvenient, async (req, res) => {
     const { nameConvenient} = req.body;
