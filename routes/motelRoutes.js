@@ -5,7 +5,7 @@ const {Role} = require('../models/roleModel');
 const User = require('../models/userModel');
 const Landlord = require('../models/landlordModel');
 const Motel = require('../models/motelModel');
-const Room = require('../models/roomModel');
+const RoomType = require('../models/roomTypeModel');
 const { uploadImagesMotel, deleteImagesMotel } = require('../upload-image/uploadImgMotel');
 const getCurrentDateFormatted = require('../getDate/getDateNow');
 const getMotelDataFilter = require('../filterData/motelFilter')
@@ -64,7 +64,7 @@ router.get('/api/motel/:id', async (req, res) => {
         // Find motel by ID and populate the related fields
         const existingMotel = await Motel.findById(id)
             .populate('ListImages')
-            .populate('ListRooms')
+            .populate('ListRoomTypes')
             .populate('ListRatings')
             .populate('ListConvenient')
 
@@ -174,7 +174,7 @@ router.post('/api/motel', uploadImagesMotel, async (req, res) => {
         // Cập nhật ListMotel trong Landlord với _id của Motel vừa được tạo
         await Landlord.findByIdAndUpdate(
             landlordID,
-            { $push: { ListMotel: savedMotel._id } }, // Thêm mới vào ListMotel của Landlord
+            { $push: { ListMotels: savedMotel._id } }, // Thêm mới vào ListMotel của Landlord
             { new: true }
         );
 
@@ -420,10 +420,10 @@ router.get('/api/motels/filters', async (req, res) => {
         let motelIdsWithRoomsAvailable = [];
          // Nếu cần lọc theo nhà trọ có phòng trống (liên quan đến bảng Rooms)
          if (filters.motelHasRoomAvailable) {
-            const rooms = await Room.find({ Status: false }); 
+            const roomTypes = await RoomType.find({ Available: { $gt: 0 } });
 
             // Lấy tất cả các motelId từ danh sách Rooms
-            motelIdsWithRoomsAvailable = rooms.map(room => room.MotelID);
+            motelIdsWithRoomsAvailable = roomTypes.map(room => room.MotelID);
 
             // Loại bỏ các motelId bị trùng lặp bằng cách sử dụng Set
             motelIdsWithRoomsAvailable = [...new Set(motelIdsWithRoomsAvailable)];
