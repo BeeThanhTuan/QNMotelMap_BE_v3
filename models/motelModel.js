@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 // Định nghĩa schema cho đối tượng Motel
 const MotelSchema = new mongoose.Schema({
     Location: { type: String, require: true },
-    LandlordID: { type: mongoose.Schema.Types.ObjectId, ref: 'Landlord', required: true },
     Address:{ type: String, require: true },
     NameMotel:{ type: String},
     WardCommune:{ type: String, require: true },
@@ -19,8 +18,11 @@ const MotelSchema = new mongoose.Schema({
     ListRoomTypes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'RoomType' }],
     ListRatings: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Rating' }],
     ListConvenient: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Convenient' }],
+    LandlordName:{ type: String, require: true },
+    PhoneNumberContact: { type: String, require: true },
+    AddressLandlord:{ type: String },
     CreateAt: { type: String, require: true },
-    CreateBy:  { type: mongoose.Schema.Types.ObjectId },
+    CreateBy:  { type: mongoose.Schema.Types.ObjectId, require: true  },
     UpdateAt: { type: String },
     UpdateBy: { type: mongoose.Schema.Types.ObjectId },
 

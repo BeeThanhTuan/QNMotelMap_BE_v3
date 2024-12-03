@@ -21,11 +21,15 @@ const UserSchema = new mongoose.Schema({
 });
 
 // Hash mật khẩu trước khi lưu
-UserSchema.pre('save', async function(next) {
-    if (!this.isModified('Password')) return next();
-    const salt = await bcrypt.genSalt(10);
-    this.Password = await bcrypt.hash(this.Password, salt);
-    next();
+UserSchema.pre('save', async function (next) {
+    try {
+        if (!this.isModified('Password')) return next();
+        const salt = await bcrypt.genSalt(10);
+        this.Password = await bcrypt.hash(this.Password, salt);
+        next();
+    } catch (error) {
+        next(error); // Truyền lỗi đến middleware tiếp theo
+    }
 });
 
 // Tạo model User từ schema

@@ -1,108 +1,159 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const router = express.Router();
-const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
+const cookieParser = require('cookie-parser');
+
 const User = require('../models/userModel');
-const {Role} = require('../models/roleModel');
+const { Role } = require('../models/roleModel');
 const Landlord = require('../models/landlordModel');
-const { uploadImageUser, deleteImageUser } = require('../upload-image/uploadImgUser');
 const getCurrentDateFormatted = require('../getDate/getDateNow');
 
-// login
-router.post('/api/login', async(req, res) => {
-    const { email, password } = req.body;
-    try {
-        // Tìm tài khoản trong cơ sở dữ liệu dựa trên email
-        const account = await User.findOne({ Email: email });
-        // Kiểm tra xem tài khoan có tồn tại không
-        if (!account) {
-            return res.status(404).json({ message: 'Email invalid' });
-        }
-        // So sánh mật khẩu nhập vào với mật khẩu lưu trong cơ sở dữ liệu
-        const isPasswordValid = await bcrypt.compare(password, account.Password);
-        if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Incorrect password' });
-        }
-        // Nếu mọi thứ hợp lệ, tạo JSON Web Token (JWT)
-        const token = jwt.sign({email: account.Email} , 'ntt-secret-key', { expiresIn: '1h' });
-        res.status(201).json({ message: 'Login successfully!', data: token });
+const router = express.Router();
 
+const ACCESS_TOKEN_SECRET = 'ntt_access_token_secret';
+const REFRESH_TOKEN_SECRET = 'ntt_refresh_token_secret';
+
+// Middleware để parse cookies
+router.use(cookieParser());
+
+// Login
+router.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        // Tìm tài khoản theo email
+        const user = await User.findOne({ Email: email });
+        if (!user) {
+            return res.status(404).json({ message: 'Email không tồn tại!' });
+        }
+
+        // So sánh mật khẩu
+        const isPasswordValid = await bcrypt.compare(password, user.Password);
+        if (!isPasswordValid) {
+            return res.status(400).json({ message: 'Mật khẩu không chính xác!' });
+        }
+
+        // Tạo Access Token
+        const accessToken = jwt.sign(
+            { email: user.Email, roleID: user.RoleID },
+            ACCESS_TOKEN_SECRET,
+            { expiresIn: '1d' }
+        );
+
+        // Tạo Refresh Token
+        const refreshToken = jwt.sign(
+            { email: user.Email, roleID: user.RoleID },
+            REFRESH_TOKEN_SECRET,
+            { expiresIn: '7d' }
+        );
+
+
+        // Gửi Access Token về FE
+        res.status(200).json({
+            message: 'Đăng nhập thành công!',
+            data: {
+                accessToken,
+                refreshToken
+            },
+        });
     } catch (error) {
-        res.status(500).json({ message: 'Internal server error' });
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ. Vui lòng thử lại sau!' });
     }
 });
 
-//regiser new 
-router.post('/api/register', uploadImageUser, async (req, res) => {
-    const { username, email, password, phoneNumber, address, roleID } = req.body;
-    const image = req.file ? req.file.filename : '';
-    const createDate = getCurrentDateFormatted();
-    
+// Refresh Token
+router.post('/api/refresh-token', (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+        return res.status(403).json({ message: 'Unauthorized' });
+    }
     try {
-        // Kiểm tra email đã tồn tại hay chưa
-        const existingUser = await User.findOne({ Email: email });
-        if (existingUser) {
-            deleteImageUser(image);
-            return res.status(400).json({ message: 'Email already exists!' });
+        // Xác minh Refresh Token
+        const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+        // Tạo Access Token mới
+        const newAccessToken = jwt.sign(
+            { email: decoded.email, roleID: decoded.roleID },
+            ACCESS_TOKEN_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        res.status(200).json({ accessToken: newAccessToken });
+    } catch (err) {
+        console.error('Error refreshing token:', err);
+        res.status(403).json({ message: 'Unauthorized' });
+    }
+});
+
+// Verify Token
+router.get('/api/verify-token', (req, res) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+
+    if (!token) return res.status(401).json({ message: 'Token không tồn tại!' });
+
+    try {
+        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+        res.status(200).json({ message: 'Token hợp lệ!', data: decoded });
+    } catch (error) {
+        res.status(401).json({ message: 'Token không hợp lệ!', error: error.message });
+    }
+});
+
+// Register
+router.post('/api/register', async (req, res) => {
+    const { username, email, password, phoneNumber, address, roleID } = req.body;
+    const createDate = getCurrentDateFormatted();
+
+    try {
+        // Kiểm tra email đã tồn tại trong User hoặc Landlord
+        const existingUserOrLandlord = await User.findOne({ Email: email }) || await Landlord.findOne({ Email: email });
+        if (existingUserOrLandlord) {
+            return res.status(400).json({ message: 'Email đã tồn tại!' });
         }
 
-        // Kiểm tra roleID có hợp lệ hay không
-        if (!mongoose.isValidObjectId(roleID)) {
-            deleteImageUser(image);
-            return res.status(400).json({ message: 'Invalid Role ID format' });
-        }
-  
+        // Kiểm tra roleID có hợp lệ không
         const role = await Role.findById(roleID);
-        if (!role) {
-            deleteImageUser(image);
-            return res.status(400).json({ message: 'Role not valid!' });
+        if (!role || !['Landlord', 'Client'].includes(role.RoleName)) {
+            return res.status(400).json({ message: 'Vai trò không hợp lệ!' });
         }
-        
-        if (role.RoleName === 'Admin') {
-            deleteImageUser(image);
-            return res.status(400).json({ message: 'Role invalid, must be Landlord or Client!' });
-        }
-        
-        // Nếu role là 'Landlord', tạo thêm landlord
+
+        // Nếu role là 'Landlord', tạo thêm Landlord document
         if (role.RoleName === 'Landlord') {
-            if(phoneNumber){
-                const newLandlord = new Landlord({
-                    LandlordName: username,
-                    Email: email,
-                    Image: image,
-                    Address: address,
-                    PhoneNumber: phoneNumber,
-                    CreateAt: createDate,
-                });
-                await newLandlord.save();
+            if (!phoneNumber) {
+                return res.status(400).json({ message: 'Số điện thoại là bắt buộc đối với vai trò Landlord!' });
             }
-            else{
-                deleteImageUser(image);
-                return res.status(400).json({ message: 'Phone Number is required!' });
-            }
+
+            const newLandlord = new Landlord({
+                LandlordName: username,
+                Email: email,
+                Image: '', // Không có ảnh mặc định
+                Address: address,
+                PhoneNumber: phoneNumber,
+                CreateAt: createDate,
+            });
+
+            await newLandlord.save();
         }
+
 
         // Tạo người dùng mới
         const newUser = new User({
             Username: username,
             Email: email,
-            Password: password,
+            Password: hashedPassword,
             RoleID: roleID,
             PhoneNumber: phoneNumber,
             Address: address,
-            Image: image,
+            Image: '',
             CreateAt: createDate,
         });
-        // Lưu người dùng
+
         await newUser.save();
-
-
-        res.status(201).json({ message: 'User created successfully!', data: newUser });
-
+        res.status(201).json({ message: 'Đăng ký người dùng thành công!', data: newUser });
     } catch (error) {
-        // Xử lý lỗi server
-        res.status(500).json({ message: 'Server error', error });
+        console.error('Register error:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ!', error: error.message });
     }
 });
 

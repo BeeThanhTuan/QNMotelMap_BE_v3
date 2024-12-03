@@ -12,9 +12,24 @@ router.get('/api/users', async (req, res) => {
     try {
         const users = await User.find().select('-Password');; 
         if (users.length === 0) {
-            return res.status(404).json({ message: 'No users found' });
+            return res.status(404).json({ message: 'User not found' });
         }  
         res.status(200).json({ message: 'Get users success!', data: users });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
+// Get user by email
+router.get('/api/user/:email', async (req, res) => {
+    const { email } = req.params;
+    try {
+        const user = await User.findOne({ Email: email }).select('-Password'); 
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }  
+        res.status(200).json({ message: 'Get users success!', data: user });
 
     } catch (error) {
         res.status(500).json({ message: 'Server error', error });

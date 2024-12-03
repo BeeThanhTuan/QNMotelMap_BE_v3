@@ -17,6 +17,39 @@ router.get('/api/roles', async (req, res) => {
     }
 });
 
+//get role id by role name
+router.get('/api/role-id/:roleName', async (req, res) => {
+    const { roleName } = req.params; // Lấy roleName từ params
+    try {
+        // Tìm role dựa trên RoleName
+        const role = await Role.findOne({ RoleName: roleName });
+        
+        if (!role) {
+            return res.status(404).json({ message: `Role with name '${roleName}' not found` });
+        }
+
+        res.status(200).json({ message: 'Get RoleID success!', data: { RoleID: role._id } });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
+// get role name by role id
+router.get('/api/role-name/:roleId', async (req, res) => {
+    const { roleId } = req.params;
+    try {
+        // Tìm role trong database dựa trên roleId
+        const role = await Role.findById(roleId);
+        if (!role) {
+            return res.status(404).json({ message: 'Role not found' });
+        }
+        res.status(200).json({ message: 'Get role name success!', data: { RoleName: role.RoleName } });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching role' });
+    }
+});
+
 // create new role
 router.post('/api/role', async (req, res) => {
     const { roleName } = req.body;

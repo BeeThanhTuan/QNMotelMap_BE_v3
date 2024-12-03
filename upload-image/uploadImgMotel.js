@@ -28,7 +28,7 @@ const uploadImagesMotel = multer({
         }
         cb(null, true);
     }
-}).array('images', 7);
+}).array('listImages', 8);
 
 // Function để xóa ảnh
 function deleteImagesMotel(image) {

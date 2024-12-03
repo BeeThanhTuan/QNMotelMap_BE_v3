@@ -16,7 +16,7 @@ function deleteImages(images){
 }
 
 // get room by ID motel
-router.get('/api/roomTypes/:idMotel', async (req, res) => {
+router.get('/api/room-types/:idMotel', async (req, res) => {
     const id = req.params.idMotel;
     try {
         // Tìm room theo ID và populate các trường liên quan
@@ -42,7 +42,7 @@ router.get('/api/roomTypes/:idMotel', async (req, res) => {
 });
 
 // get room by ID rom
-router.get('/api/roomType/:idRoomType', async (req, res) => {
+router.get('/api/room-type/:idRoomType', async (req, res) => {
     const id = req.params.idRoomType;
     try {
         // Tìm room type theo ID và populate các trường liên quan
@@ -62,7 +62,7 @@ router.get('/api/roomType/:idRoomType', async (req, res) => {
 });
 
 // add new room type
-router.post('/api/roomType', uploadImagesRoom, async (req, res) => {
+router.post('/api/room-type', uploadImagesRoom, async (req, res) => {
     const { userID, motelID, description, listConvenient, floor, area, price, amount, available } = req.body;
     const currentDate = getCurrentDateFormatted();
 
@@ -159,7 +159,7 @@ router.post('/api/roomType', uploadImagesRoom, async (req, res) => {
 
 
 // update room type by ID
-router.put('/api/roomType/:idRoomType', uploadImagesRoom, async (req, res) => {
+router.put('/api/room-type/:idRoomType', uploadImagesRoom, async (req, res) => {
     const id  = req.params.idRoomType;
     const { userID, description, listConvenient, floor, amount, area, price, available } = req.body;
     const currentDate = getCurrentDateFormatted();
@@ -278,7 +278,7 @@ router.put('/api/roomType/:idRoomType', uploadImagesRoom, async (req, res) => {
 });
 
 //delete room by id
-router.delete('/api/roomType/:idRoomType', async (req, res) => {
+router.delete('/api/room-type/:idRoomType', async (req, res) => {
     const id = req.params.idRoomType; 
     try {
         // Tìm room theo ID
