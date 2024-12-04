@@ -20,7 +20,6 @@ router.use(cookieParser());
 // Login
 router.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
-
     try {
         // Tìm tài khoản theo email
         const user = await User.findOne({ Email: email });
@@ -141,7 +140,7 @@ router.post('/api/register', async (req, res) => {
         const newUser = new User({
             Username: username,
             Email: email,
-            Password: hashedPassword,
+            Password: password,
             RoleID: roleID,
             PhoneNumber: phoneNumber,
             Address: address,

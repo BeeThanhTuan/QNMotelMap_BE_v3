@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 const { uploadImagesMotel, deleteImagesMotel } = require('../upload-image/uploadImgMotel');
 const getCurrentDateFormatted = require('../getDate/getDateNow');
 const getMotelDataFilter = require('../filterData/motelFilter')
-const checkRoleAdminAndLandlord = require('../middleware/checkRoleAdminAndLandlord')
+const checkRoleAdminAndLandlord = require('../middleware/checkRoleAdminAndLandlord');
 function deleteImages(images){
     images.map(image=> {
         deleteImagesMotel(image);
@@ -158,6 +158,7 @@ router.post('/api/motel', uploadImagesMotel, checkRoleAdminAndLandlord, async (r
             WaterBill: transformedData.waterBill,
             WifiBill: transformedData.wifiBill,
             TotalRating: 0,
+            TotalAvailableRoom: 0,
             LandlordName: landlordName,
             AddressLandlord: addressLandlord,
             PhoneNumberContact: phoneNumberContact,
@@ -207,11 +208,12 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
     const {
         userID, landlordID, location, address, wardCommune, description, listConvenient,
         listOldImagesRemove, electricityBill, waterBill, wifiBill, liveWithLandlord, landlordName,
-        phoneNumberContact, addressLandlord, distance, price
+        phoneNumberContact, addressLandlord, distance, price, nameMotel
     } = req.body;
     
     const transformedData = {
         userID,
+        nameMotel,
         landlordID,
         location,
         address,
@@ -229,6 +231,9 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
         phoneNumberContact,
         addressLandlord,
     };
+
+    console.log(transformedData);
+    
 
     const currentDate = getCurrentDateFormatted();
 
@@ -259,6 +264,7 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
 
         // Các trường cần cập nhật
         const fieldsToUpdate = {
+            NameMotel: nameMotel,
             Location: location,
             LandlordID: landlordID,
             Address: address,
@@ -272,16 +278,20 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
             LiveWithLandlord: !transformedData.liveWithLandlord,
             LandlordName: landlordName,
             PhoneNumberContact: phoneNumberContact,
-            AddressLandlord: addressLandlord
+            AddressLandlord: addressLandlord,
+            Price: transformedData.price,
         };
 
         // Cập nhật các trường
         Object.keys(fieldsToUpdate).forEach(key => {
-            if (fieldsToUpdate[key] !== undefined) {
+            if (fieldsToUpdate[key] || fieldsToUpdate[key] === false || fieldsToUpdate[key] === 0) {
                 existingMotel[key] = fieldsToUpdate[key];
             }
         });
 
+        if(transformedData.wifiBill === null){
+            existingMotel.WifiBill = null;
+        }
         // Cập nhật ngày chỉnh sửa và người chỉnh sửa
         existingMotel.UpdateAt = currentDate;
         existingMotel.UpdateBy = userID;
@@ -290,19 +300,21 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
         if (transformedData.listOldImagesRemove && transformedData.listOldImagesRemove.length > 0) {
             try {
                 const imageIdsToRemove = transformedData.listOldImagesRemove.map(id => new mongoose.Types.ObjectId(id));  // Chuyển chuỗi thành ObjectId đúng cách
-                const remainingImages = existingMotel.ListImages.filter(imageId => !imageIdsToRemove.includes(imageId.toString()))
+                const remainingImages = existingMotel.ListImages.filter(imageId => !imageIdsToRemove.includes(imageId.toString()));
                 // Truy vấn ảnh để xóa
                 const imagesToDelete = await Images.find({ _id: { $in: imageIdsToRemove } });  // Sử dụng ObjectId
 
                 if (imagesToDelete.length === 0) {
                     console.log("Không tìm thấy ảnh cần xóa.");
                 }
-        
+                // Xóa ảnh khỏi thư mục và database
                 const imagesToDeletePaths = imagesToDelete.map(image => image.LinkImage);
-                deleteImages(imagesToDeletePaths);
-                await Images.deleteMany({ _id: { $in: imageIdsToRemove } });
-        
+                deleteImages(imagesToDeletePaths);  // Xóa ảnh trên file system
+                await Images.deleteMany({ _id: { $in: imageIdsToRemove } });  // Xóa ảnh trong database
+
+                // Cập nhật lại ListImages sau khi xóa ảnh cũ
                 existingMotel.ListImages = remainingImages;
+
             } catch (error) {
                 console.error("Đã xảy ra lỗi:", error);  // In lỗi nếu có
             }
@@ -319,19 +331,28 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
                 const savedImage = await newImage.save();
                 imageIDs.push(savedImage._id);
             }
+            
+            // Cập nhật lại ListImages, chỉ thêm các ảnh mới vào
             existingMotel.ListImages.push(...imageIDs);
+
+            // Lưu lại mảng ListImages trong Motel
+            await existingMotel.save();
         }
 
-        // Lưu các thay đổi
+         // Đảm bảo cập nhật xong tất cả dữ liệu
         await existingMotel.save();
-        res.status(200).json({ message: 'Cập nhật nhà trọ thành công', data: existingMotel });
+
+        // Đảm bảo response trả về dữ liệu chính xác
+        const updatedMotel = await Motel.findById(existingMotel._id).populate('ListImages').populate('ListConvenient');
+        res.status(200).json({
+            message: 'Cập nhật nhà trọ thành công',
+            data: updatedMotel
+        });
     } catch (error) {
         deleteImages(images);
         res.status(500).json({ message: 'Lỗi server', error });
     }
 });
-
-
 
 
 
