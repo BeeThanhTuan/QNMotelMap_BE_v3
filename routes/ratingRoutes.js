@@ -6,30 +6,30 @@ const Rating = require('../models/ratingModel');
 const getCurrentDateFormatted = require('../getDate/getDateNow');
 
 //add new motel
-router.post('/api/rating',  async (req, res) => {
-    const { userID, motelID, star, comment} = req.body;
+router.post('/api/rating', async (req, res) => {
+    const { userID, motelID, star, comment } = req.body;
     const currentDate = getCurrentDateFormatted();
     try {
         console.log(req.body);
-        
+
         // Kiểm tra xem user có tồn tại không
         const existingUser = await User.findById(userID);
         if (!existingUser) {
-            return res.status(404).json({ message: 'User does not exist!' });
+            return res.status(404).json({ message: 'Người dùng không tồn tại!' });
         }
 
         // Kiểm tra xem motel có tồn tại không
         const existingMotel = await Motel.findById(motelID);
         if (!existingMotel) {
-            return res.status(404).json({ message: 'Motel does not exist!' });
+            return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
         }
 
-        if(!star){
-            return res.status(400).json({ message: 'Star is required!' });
+        if (!star) {
+            return res.status(400).json({ message: 'Số sao không được để trống!' });
         }
 
-        if(!comment){
-            return res.status(400).json({ message: 'Comment is required!' });
+        if (!comment) {
+            return res.status(400).json({ message: 'Bình luận không được để trống!' });
         }
 
         // Tạo mới đối tượng Rating
@@ -47,13 +47,34 @@ router.post('/api/rating',  async (req, res) => {
         existingMotel.ListRatings.push(savedRating._id);
         await existingMotel.save();
 
+        // Tính trung bình TotalRating
+        const ratings = await Rating.find({ MotelID: motelID });
+        const totalStars = ratings.reduce((sum, rating) => sum + rating.Star, 0);
+        const averageStars = (totalStars / ratings.length).toFixed(1);
 
-        res.status(201).json({ message: 'Rating created successfully', data: savedRating });
+        // Cập nhật TotalRating của Motel
+        existingMotel.TotalRating = averageStars;
+        await existingMotel.save();
 
+        // Thêm thông tin người dùng vào đối tượng đánh giá
+        const ratingWithDataUser = {
+            _id: savedRating._id,
+            MotelID: savedRating.MotelID,
+            Star: savedRating.Star,
+            Comment: savedRating.Comment,
+            CreateAt: savedRating.CreateAt,
+            CreateBy: savedRating.CreateBy,
+            UserAvatar: existingUser.Image || null,
+            UserName: existingUser.Username || null,
+        };
+
+        res.status(201).json({ message: 'Đánh giá đã được tạo thành công!', data: ratingWithDataUser });
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi máy chủ!', error });
     }
 });
+
+
 
 // get room by ID rom
 router.get('/api/ratings/:idMotel', async (req, res) => {
@@ -88,6 +109,30 @@ router.get('/api/ratings/:idMotel', async (req, res) => {
         res.status(500).json({ message: 'Server error', error });
     }
 });
+
+router.post('/api/rating/check', async (req, res) => {
+    const { userID, motelID } = req.body;
+
+    try {
+        // Lấy thông tin nhà trọ
+        const existingMotel = await Motel.findById(motelID).populate('ListRatings');
+        if (!existingMotel) {
+            return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
+        }
+
+        // Kiểm tra xem người dùng đã đánh giá hay chưa
+        const hasRated = existingMotel.ListRatings.some((rating) => rating.CreateBy.toString() === userID);
+
+        if (hasRated) {
+            return res.status(200).json({ message: 'Người dùng đã đánh giá nhà trọ này.', hasRated: true });
+        } else {
+            return res.status(200).json({ message: 'Người dùng chưa đánh giá nhà trọ này.', hasRated: false });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi máy chủ!', error });
+    }
+});
+
 
 
 module.exports = router;

@@ -419,6 +419,10 @@ router.get('/api/motels/filters', async (req, res) => {
     };
     
     const query = {};
+
+    if(filters.motelHasRoomAvailable){
+        query.TotalAvailableRoom =  { $gt: 0 }
+    }
   
     // Lọc theo addressSearch dựa trên WardCommune
     if (filters.addressSearch) {
@@ -483,25 +487,6 @@ router.get('/api/motels/filters', async (req, res) => {
 
 
     try {
-        let motelIdsWithRoomsAvailable = [];
-         // Nếu cần lọc theo nhà trọ có phòng trống (liên quan đến bảng Rooms)
-         if (filters.motelHasRoomAvailable) {
-            const roomTypes = await RoomType.find({ Available: { $gt: 0 } });
-
-            // Lấy tất cả các motelId từ danh sách Rooms
-            motelIdsWithRoomsAvailable = roomTypes.map(room => room.MotelID);
-
-            // Loại bỏ các motelId bị trùng lặp bằng cách sử dụng Set
-            motelIdsWithRoomsAvailable = [...new Set(motelIdsWithRoomsAvailable)];
-
-            // Nếu không có nhà trọ nào có phòng trống, trả về kết quả rỗng
-            if (motelIdsWithRoomsAvailable.length === 0) {
-                return res.status(404).json({ message: 'No motels with available rooms found!' });
-            }
-
-            // Thêm điều kiện lọc vào truy vấn `Motel` dựa trên danh sách các motelId có phòng trống
-            query._id = { $in: motelIdsWithRoomsAvailable };
-        }
         // Thực hiện truy vấn với điều kiện động
         const motelsFirstFilter = await Motel.find(query)
             .populate('ListImages')
