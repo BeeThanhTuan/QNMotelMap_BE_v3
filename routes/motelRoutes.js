@@ -232,9 +232,6 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
         addressLandlord,
     };
 
-    console.log(transformedData);
-    
-
     const currentDate = getCurrentDateFormatted();
 
     const images = req.files ? req.files.map(file => file.filename) : [];

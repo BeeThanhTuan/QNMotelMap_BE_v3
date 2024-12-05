@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Images = require('../models/imagesModel');
-const {Role} = require('../models/roleModel');
+const mongoose = require('mongoose');
 const User = require('../models/userModel');
 const Motel = require('../models/motelModel');
 const RoomType = require('../models/roomTypeModel');
@@ -64,9 +64,16 @@ router.get('/api/room-type/:idRoomType', async (req, res) => {
 // add new room type
 router.post('/api/room-type', checkRoleAdminAndLandlord, uploadImagesRoom, async (req, res) => {
     const { userID, motelID, description, listConvenient, area, price, amount, available } = req.body;
+    const transformedData = {
+        listConvenient: JSON.parse(listConvenient || '[]'), 
+        area: Number(area) || 0,
+        price: Number(price) || 0,
+        amount:Number(amount) || 0,
+        available:Number(available) || 0
+    };
     const currentDate = getCurrentDateFormatted();
-
-    const images = req.files.map(file => file.filename);
+    const listImages = req.files.map(file => file.filename);
+    
     try {
         // Kiểm tra xem đã tải lên ảnh chưa
         if (!req.files || req.files.length === 0) {
@@ -76,14 +83,14 @@ router.post('/api/room-type', checkRoleAdminAndLandlord, uploadImagesRoom, async
         // Kiểm tra nhà trọ có tồn tại hay không
         const existingMotel = await Motel.findById(motelID);
         if (!existingMotel) {
-            deleteImages(images);
+            deleteImages(listImages);
             return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
         }
 
         // Kiểm tra người dùng có tồn tại hay không
         const existingUser = await User.findById(userID);
         if (!existingUser) {
-            deleteImages(images);
+            deleteImages(listImages);
             return res.status(404).json({ message: 'Người dùng không tồn tại!' });
         }
 
@@ -91,11 +98,11 @@ router.post('/api/room-type', checkRoleAdminAndLandlord, uploadImagesRoom, async
         const newRoomType = new RoomType({
             MotelID: existingMotel._id,
             Description: description,
-            ListConvenient: listConvenient,
-            Area: area,
-            Price: price,
-            Amount: amount,
-            Available: available,
+            ListConvenient: transformedData.listConvenient,
+            Area: transformedData.area,
+            Price: transformedData.price,
+            Amount: transformedData.amount,
+            Available: transformedData.available,
             CreateAt: currentDate,
             CreateBy: userID,
         });
@@ -110,7 +117,7 @@ router.post('/api/room-type', checkRoleAdminAndLandlord, uploadImagesRoom, async
 
         // Lưu thông tin ảnh
         const imageIDs = [];
-        for (const image of images) {
+        for (const image of listImages) {
             const newImage = new Images({
                 RoomID: savedRoomType._id,
                 LinkImage: image,
@@ -142,76 +149,99 @@ router.post('/api/room-type', checkRoleAdminAndLandlord, uploadImagesRoom, async
         existingMotel.ListConvenient = combinedConveniences;
 
         // **Tính tổng số phòng trống**
-        const totalAvailableRooms = allRooms.reduce((acc, roomType) => acc + roomType.Available, 0);
-        console.log(totalAvailableRooms);
-        
+        const totalAvailableRooms = allRooms.reduce((acc, roomType) => acc + roomType.Available, 0); 
         existingMotel.TotalAvailableRoom = totalAvailableRooms;
 
         // Lưu thông tin nhà trọ sau khi cập nhật
         await existingMotel.save();
+        const populatedRoomType = await RoomType.findById(savedRoomType._id).populate('ListImages').populate('ListConvenient');
 
-        res.status(201).json({ message: 'Thêm loại phòng thành công', data: savedRoomType });
+        res.status(201).json({ message: 'Thêm loại phòng thành công', data: populatedRoomType });
     } catch (error) {
-        deleteImages(images);
+        deleteImages(listImages);
         res.status(500).json({ message: 'Lỗi hệ thống', error });
     }
 });
 
 
+// Update room type by ID
+router.put('/api/room-type/:id', checkRoleAdminAndLandlord, uploadImagesRoom, async (req, res) => {
+    const id = req.params.id;
+    const {
+        userID, motelID, description, listConvenient, area, price, amount, available, listOldImagesRemove
+    } = req.body;
 
-// update room type by ID
-router.put('/api/room-type/:idRoomType', checkRoleAdminAndLandlord, uploadImagesRoom, async (req, res) => {
-    const id  = req.params.idRoomType;
-    const { userID, description, listConvenient, floor, amount, area, price, available } = req.body;
+    const transformedData = {
+        listConvenient: JSON.parse(listConvenient || '[]'),
+        listOldImagesRemove: JSON.parse(listOldImagesRemove || '[]'),
+        area: Number(area) || 0,
+        price: Number(price) || 0,
+        amount: Number(amount) || 0,
+        available: Number(available) || 0
+    };
+
     const currentDate = getCurrentDateFormatted();
-    const images = req.files.map(file => file.filename);
+    const images = req.files ? req.files.map(file => file.filename) : [];
+
     try {
-        // Tìm kiếm RoomType theo ID
+        // Kiểm tra sự tồn tại của loại phòng
         const existingRoomType = await RoomType.findById(id);
         if (!existingRoomType) {
             deleteImages(images);
-            return res.status(404).json({ message: 'Room type does not exist!' });
+            return res.status(404).json({ message: 'Loại phòng không tồn tại!' });
         }
 
-        // Kiểm tra user có tồn tại không
+        // Kiểm tra nhà trọ có tồn tại hay không
+        const existingMotel = await Motel.findById(motelID);
+        if (!existingMotel) {
+            deleteImages(images);
+            return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
+        }
+
+        // Kiểm tra người dùng có tồn tại hay không
         const existingUser = await User.findById(userID);
         if (!existingUser) {
             deleteImages(images);
-            return res.status(404).json({ message: 'User does not exist!' });
+            return res.status(404).json({ message: 'Người dùng không tồn tại!' });
         }
 
-        // Kiểm tra xem motel có tồn tại không
-        const existingMotel = await Motel.findById(existingRoomType.MotelID);
-        if (!existingMotel) {
-            deleteImages(images);
-            return res.status(404).json({ message: 'Motel does not exist!' });
-        }
-
-        // Danh sách các trường có thể được cập nhật
+        // Các trường cần cập nhật
         const fieldsToUpdate = {
-            Description: description,
-            Floor: floor,
-            Area: area,
-            ListConvenient: listConvenient,
-            Price: price,
-            Amount: amount, 
-            Available: available
+            Description: description ,
+            ListConvenient: transformedData.listConvenient,
+            Area: transformedData.area,
+            Price: transformedData.price,
+            Amount: transformedData.amount,
+            Available: transformedData.available,
+            UpdateAt: currentDate,
+            UpdateBy: userID
         };
 
-        // Cập nhật các trường có giá trị mới
+
+        // Áp dụng các trường cần cập nhật vào existingRoomType
         Object.keys(fieldsToUpdate).forEach(key => {
-            if (fieldsToUpdate[key] !== undefined) {
+            if (fieldsToUpdate[key] || fieldsToUpdate[key] === false || fieldsToUpdate[key] === 0) {
                 existingRoomType[key] = fieldsToUpdate[key];
             }
         });
 
-        // Cập nhật thông tin ngày và người chỉnh sửa
-        existingRoomType.UpdateAt = currentDate;
-        existingRoomType.UpdateBy = existingUser._id;
+        // Xóa ảnh cũ nếu được chỉ định
+        if (transformedData.listOldImagesRemove.length > 0) {
+            const imageIdsToRemove = transformedData.listOldImagesRemove.map(id => new mongoose.Types.ObjectId(id));
+            const imagesToDelete = await Images.find({ _id: { $in: imageIdsToRemove } });
+            const imagesToDeletePaths = imagesToDelete.map(image => image.LinkImage);
 
-        // Nếu có ảnh mới tải lên
-        if (req.files && req.files.length > 0) {
-            // Lưu danh sách ảnh mới vào cơ sở dữ liệu và cập nhật danh sách ảnh trong room
+            deleteImages(imagesToDeletePaths); // Xóa ảnh trên file system
+            await Images.deleteMany({ _id: { $in: imageIdsToRemove } }); // Xóa ảnh trong database
+
+            // Loại bỏ các ảnh đã xóa khỏi danh sách ảnh của RoomType
+            existingRoomType.ListImages = existingRoomType.ListImages.filter(imageId => 
+                !imageIdsToRemove.includes(imageId.toString())
+            );
+        }
+
+        // Thêm ảnh mới
+        if (images.length > 0) {
             const imageIDs = [];
             for (const image of images) {
                 const newImage = new Images({
@@ -221,50 +251,38 @@ router.put('/api/room-type/:idRoomType', checkRoleAdminAndLandlord, uploadImages
                 const savedImage = await newImage.save();
                 imageIDs.push(savedImage._id);
             }
-
-            // Xoá các ảnh cũ và cập nhật danh sách ảnh mới trong motel
-            const oldImageIds = existingRoomType.ListImages.map(id => id.toHexString());
-            const oldImages = await Promise.all(oldImageIds.map(async (id) => {
-                const image = await Images.findById(id);
-                return image ? image.LinkImage : null;
-            }));
-            if (oldImages.length > 0) {
-                deleteImages(oldImages); // Xóa ảnh cũ khỏi hệ thống tệp
-                await Images.deleteMany({ _id: { $in: oldImageIds } }); // Xóa ảnh cũ khỏi database
-            }
-            // Cập nhật ListImages với danh sách ảnh mới
-            existingRoomType.ListImages = imageIDs;
+            existingRoomType.ListImages.push(...imageIDs);
         }
 
-        // Lưu lại các thay đổi
+        // Lưu thông tin RoomType sau khi cập nhật
         await existingRoomType.save();
 
-        // Update motel's price
-        const allRooms = await RoomType.find({ MotelID: existingMotel._id });
+        // Cập nhật giá thấp nhất và số phòng trống của nhà trọ
+        const allRooms = await RoomType.find({ MotelID: motelID });
+        const minPrice = allRooms.length > 0 ? Math.min(...allRooms.map(room => room.Price)) : transformedData.price;
+        const totalAvailableRooms = allRooms.reduce((acc, roomType) => acc + roomType.Available, 0);
 
-        const minPrice = allRooms.length > 0 ? Math.min(...allRooms.map(room => room.Price)) : price;
         existingMotel.Price = minPrice;
+        existingMotel.TotalAvailableRoom = totalAvailableRooms;
 
-        // Collect all conveniences from all room types
-        const allConveniences = allRooms.reduce((acc, room) => {
-            return acc.concat(room.ListConvenient);
-        }, []);
-
-        // Combine with motel's current ListConvenient and deduplicate
+        // Tổng hợp và cập nhật danh sách tiện ích của nhà trọ
+        const allConveniences = allRooms.reduce((acc, room) => acc.concat(room.ListConvenient), []);
         const combinedConveniences = Array.from(
             new Set([...existingMotel.ListConvenient, ...allConveniences].map(id => id.toString()))
-        ).map(id => new ObjectId(id));
-        
-        // Update motel's ListConvenient
+        ).map(id => new mongoose.Types.ObjectId(id));
+
         existingMotel.ListConvenient = combinedConveniences;
         await existingMotel.save();
 
-        res.status(200).json({ message: 'Room updated successfully', data: existingRoomType });
+        const populatedRoomType = await RoomType.findById(existingRoomType._id).populate('ListImages').populate('ListConvenient');
+
+        res.status(200).json({ message: 'Cập nhật loại phòng thành công', data: populatedRoomType });
     } catch (error) {
         deleteImages(images);
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi hệ thống', error });
     }
 });
+
 
 //delete room by id
 router.delete('/api/room-type/:idRoomType', async (req, res) => {
