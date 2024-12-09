@@ -10,8 +10,6 @@ router.post('/api/rating', async (req, res) => {
     const { userID, motelID, star, comment } = req.body;
     const currentDate = getCurrentDateFormatted();
     try {
-        console.log(req.body);
-
         // Kiểm tra xem user có tồn tại không
         const existingUser = await User.findById(userID);
         if (!existingUser) {

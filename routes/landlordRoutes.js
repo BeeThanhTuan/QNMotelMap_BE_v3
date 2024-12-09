@@ -7,7 +7,7 @@ router.get('/api/landlord/:id', async (req, res) => {
     const id = req.params.id;
     try {
         // Find motel by ID and populate the related fields
-        const existingLandlord = await Landlord.findById(id)
+        const existingLandlord = await Landlord.findOne({ _id: id, IsDelete: false })
 
         if (!existingLandlord) {
             return res.status(404).json({ message: 'Landlord does not exist!' });
@@ -25,7 +25,7 @@ router.get('/api/landlord-by-email/:email', async (req, res) => {
     const email = req.params.email;
     try {
         // Find motel by ID and populate the related fields
-        const existingLandlord = await Landlord.findOne({Email : email})
+        const existingLandlord = await Landlord.findOne({Email : email, IsDelete: false})
         .populate({
             path: 'ListMotels', // Populate danh sách các Motel
             populate: {

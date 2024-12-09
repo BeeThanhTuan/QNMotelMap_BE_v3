@@ -9,7 +9,8 @@ const LandlordSchema = new mongoose.Schema({
     ListMotels: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Motel' }],
     CreateAt: {type: String, require: true},
     UpdateAt: {type: String},
-    UpdateBy: {type: mongoose.Schema.Types.ObjectId, ref: 'User'}
+    UpdateBy: {type: mongoose.Schema.Types.ObjectId, ref: 'User'},
+    IsDelete: {type: Boolean, default: false},
 }, {
     collection: "Landlord"
 });

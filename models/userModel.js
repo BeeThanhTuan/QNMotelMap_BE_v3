@@ -14,7 +14,8 @@ const UserSchema = new mongoose.Schema({
     PhoneNumber: { type: String },
     CreateAt: {type: String, require: true},
     UpdateAt: {type: String},
-    UpdateBy: {type: mongoose.Schema.Types.ObjectId}
+    UpdateBy: {type: mongoose.Schema.Types.ObjectId},
+    IsDelete: {type: Boolean, default: false},
 
 }, {
     collection: "User"

@@ -10,7 +10,7 @@ const getCurrentDateFormatted = require('../getDate/getDateNow');
 // Get all users
 router.get('/api/users', async (req, res) => {
     try {
-        const users = await User.find().select('-Password');; 
+        const users = await User.find({IsDelete: false}).select('-Password');; 
         if (users.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }  
@@ -25,7 +25,7 @@ router.get('/api/users', async (req, res) => {
 router.get('/api/user/:email', async (req, res) => {
     const { email } = req.params;
     try {
-        const user = await User.findOne({ Email: email }).select('-Password'); 
+        const user = await User.findOne({ Email: email, IsDelete: false }).select('-Password'); 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }  
@@ -71,6 +71,7 @@ router.post('/api/user', uploadImageUser, async (req, res) => {
                     Address: address,
                     PhoneNumber: phoneNumber,
                     CreateAt: createDate,
+                    IsDelete: false,
                 });
 
                 await newLandlord.save();
@@ -91,6 +92,7 @@ router.post('/api/user', uploadImageUser, async (req, res) => {
             Address: address,
             Image: image,
             CreateAt: createDate,
+            IsDelete: false,
         });
 
         // Lưu người dùng

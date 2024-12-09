@@ -26,6 +26,7 @@ const MotelSchema = new mongoose.Schema({
     CreateBy:  { type: mongoose.Schema.Types.ObjectId, require: true  },
     UpdateAt: { type: String },
     UpdateBy: { type: mongoose.Schema.Types.ObjectId },
+    IsDelete: {type: Boolean, default: false},
 
 }, {
     collection: "Motel"

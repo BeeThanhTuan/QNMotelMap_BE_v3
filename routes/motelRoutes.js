@@ -19,12 +19,12 @@ function deleteImages(images){
 router.get('/api/motels', async (req, res) => {
     try {
         // Lấy danh sách tất cả các motels
-        const motels = await Motel.find()
+        const motels = await Motel.find({ IsDelete: false })
             .populate('ListImages')
             .populate('ListRatings')
             .populate('ListConvenient')
         if (motels.length <= 0) {
-            return res.status(404).json({ message: 'Motels not found!' });
+            return res.status(404).json({ message: 'Không tìm thấy nhà trọ!' });
         }
 
         // Tạo một mảng mới chứa các motels với field 'totalStar'
@@ -61,7 +61,7 @@ router.get('/api/motel/:id', async (req, res) => {
     const id = req.params.id;
     try {
         // Find motel by ID and populate the related fields
-        const existingMotel = await Motel.findById(id)
+        const existingMotel = await Motel.findOne({ _id: id, IsDelete: false })
             .populate('ListImages')
             .populate('ListRoomTypes')
             .populate('ListRatings')
@@ -164,6 +164,7 @@ router.post('/api/motel', uploadImagesMotel, checkRoleAdminAndLandlord, async (r
             PhoneNumberContact: phoneNumberContact,
             CreateAt: currentDate,
             CreateBy: userID,
+            IsDelete: false,
         });
 
         // Lưu Motel trước khi cập nhật ListImages
@@ -418,7 +419,9 @@ router.get('/api/motels/filters', async (req, res) => {
         haveAirConditioner: haveAirConditioner === 'true'
     };
     
-    const query = {};
+    const query = {
+        IsDelete : false
+    };
 
     if(filters.motelHasRoomAvailable){
         query.TotalAvailableRoom =  { $gt: 0 }
@@ -581,6 +584,28 @@ router.get('/api/count-motels-by-ward-commune', async (req, res) => {
 });
 
   
+router.get('/api/top-motels', async (req, res) => {
+    try {
+        // Lấy danh sách các motels chưa bị xóa, sắp xếp theo TotalRating giảm dần và giới hạn 8 cái
+        const motels = await Motel.find({ IsDelete: false })
+            .sort({ TotalRating: -1 }) // Sắp xếp giảm dần theo TotalRating
+            .limit(8) // Giới hạn 8 kết quả
+            .populate('ListImages')
+            .populate('ListRatings')
+            .populate('ListConvenient');
 
+        if (motels.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy nhà trọ!' });
+        }
+
+        res.status(200).json({
+            message: 'Get top 8 motels by TotalRating successfully',
+            data: motels
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
 
 module.exports = router;

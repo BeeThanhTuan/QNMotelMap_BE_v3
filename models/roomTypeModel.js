@@ -13,7 +13,7 @@ const RoomTypeSchema = new mongoose.Schema({
     CreateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', require: true },
     UpdateAt: {type: String},
     UpdateBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-
+    IsDelete: {type: Boolean, default: false},
 }, {
     collection: "RoomType"
 });

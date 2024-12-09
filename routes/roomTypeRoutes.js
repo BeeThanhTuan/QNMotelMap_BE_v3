@@ -21,7 +21,7 @@ router.get('/api/room-types/:idMotel', async (req, res) => {
     const id = req.params.idMotel;
     try {
         // Tìm room theo ID và populate các trường liên quan
-        const existingMotel = await Motel.findById(id)
+        const existingMotel = await Motel.findOne({ _id: id, IsDelete: false })
         .populate({
             path: 'ListRoomTypes', // Populate the ListRoomTypes field
             populate: [
@@ -46,7 +46,7 @@ router.get('/api/room-type/:idRoomType', async (req, res) => {
     const id = req.params.idRoomType;
     try {
         // Tìm room type theo ID và populate các trường liên quan
-        const existingRoomType = await RoomType.findById(id)
+        const existingRoomType = await RoomType.findOne({ _id: id, IsDelete: false })
             .populate('ListImages')
             .populate('ListConvenient')
 
@@ -105,6 +105,7 @@ router.post('/api/room-type', checkRoleAdminAndLandlord, uploadImagesRoom, async
             Available: transformedData.available,
             CreateAt: currentDate,
             CreateBy: userID,
+            IsDelete: false,
         });
 
         // Lưu RoomType mới
