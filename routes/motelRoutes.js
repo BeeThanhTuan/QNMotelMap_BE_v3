@@ -10,13 +10,14 @@ const { uploadImagesMotel, deleteImagesMotel } = require('../upload-image/upload
 const getCurrentDateFormatted = require('../getDate/getDateNow');
 const getMotelDataFilter = require('../filterData/motelFilter')
 const checkRoleAdminAndLandlord = require('../middleware/checkRoleAdminAndLandlord');
-function deleteImages(images){
-    images.map(image=> {
+
+function deleteImages(images) {
+    images.map(image => {
         deleteImagesMotel(image);
     });
 }
 
-router.get('/api/motels', async (req, res) => {
+router.get('/api/motels', async(req, res) => {
     try {
         // Lấy danh sách tất cả các motels
         const motels = await Motel.find({ IsDelete: false })
@@ -27,75 +28,62 @@ router.get('/api/motels', async (req, res) => {
             return res.status(404).json({ message: 'Không tìm thấy nhà trọ!' });
         }
 
-        // Tạo một mảng mới chứa các motels với field 'totalStar'
-        const motelsWithTotalStar = motels.map(motel => {
-            // Tính tổng và trung bình sao từ ListRatings
-            const ratings = motel.ListRatings;
-            let TotalStars = 0;
-            if (ratings.length > 0) {
-               TotalStars = ratings.reduce((sum, rating) => sum + rating.Star, 0) / ratings.length;
-            }
-
-            // Trả về motel kèm với trường totalStar
-            return {
-                ...motel._doc, // Sao chép tất cả các field hiện có của motel
-                TotalStar: TotalStars // Thêm trường totalStar
-            };
-        });
-
-        const motelsFiltered = getMotelDataFilter(motelsWithTotalStar);
+        const motelsFiltered = getMotelDataFilter(motels);
         res.status(200).json({
-            message: 'Get all motels successfully',
-            data: motelsWithTotalStar, // Trả về dữ liệu đã có totalStar
+            message: 'Lất tất cả nhà trọ thành công.',
+            data: motels, // Trả về dữ liệu đã có totalStar
             dataFiltered: motelsFiltered
         });
 
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
 
 
 // Get motel by ID
-router.get('/api/motel/:id', async (req, res) => {
+router.get('/api/motel/:id', async(req, res) => {
     const id = req.params.id;
     try {
-        // Find motel by ID and populate the related fields
-        const existingMotel = await Motel.findOne({ _id: id, IsDelete: false })
+        const existingMotel = await Motel.findOne({ _id: id })
             .populate('ListImages')
             .populate('ListRoomTypes')
             .populate('ListRatings')
             .populate('ListConvenient')
 
         if (!existingMotel) {
-            return res.status(404).json({ message: 'Motel does not exist!' });
+            return res.status(404).json({ message: 'nhà trọ không tồn tại!' });
         }
 
-        // Calculate the totalStar by averaging the stars from ListRatings
-        const ratings = existingMotel.ListRatings;
-        let TotalStar = 0;
-        if (ratings.length > 0) {
-            TotalStar = ratings.reduce((sum, rating) => sum + rating.Star, 0) / ratings.length;
-        }
-
-        // Return the motel data with the added totalStar field
-        const motelWithTotalStar = {
-            ...existingMotel._doc, // Copy all existing fields of the motel
-            TotalStar // Add totalStar field
-        };
-
-        res.status(200).json({ message: 'Get motel by id successfully', data: motelWithTotalStar });
+        res.status(200).json({ message: 'Lấy nhà trọ theo id thành công!', data: existingMotel });
 
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
 
 
 //add new motel
-router.post('/api/motel', uploadImagesMotel, checkRoleAdminAndLandlord, async (req, res) => {
-    const { userID, nameMotel , landlordID, location, address, wardCommune, description, listConvenient,
-         electricityBill, waterBill, wifiBill, distance, price, liveWithLandlord, landlordName, phoneNumberContact, addressLandlord } = req.body;
+router.post('/api/motel', uploadImagesMotel, checkRoleAdminAndLandlord, async(req, res) => {
+    const {
+        userID,
+        nameMotel,
+        landlordID,
+        location,
+        address,
+        wardCommune,
+        description,
+        listConvenient,
+        electricityBill,
+        waterBill,
+        wifiBill,
+        distance,
+        price,
+        liveWithLandlord,
+        landlordName,
+        phoneNumberContact,
+        addressLandlord
+    } = req.body;
     const transformedData = {
         userID,
         nameMotel,
@@ -104,7 +92,7 @@ router.post('/api/motel', uploadImagesMotel, checkRoleAdminAndLandlord, async (r
         address,
         wardCommune,
         description,
-        listConvenient: JSON.parse(listConvenient || '[]'), 
+        listConvenient: JSON.parse(listConvenient || '[]'),
         electricityBill: Number(electricityBill) || 0,
         waterBill: Number(waterBill) || 0,
         wifiBill: wifiBill === 'null' ? null : Number(wifiBill) || 0,
@@ -114,15 +102,15 @@ router.post('/api/motel', uploadImagesMotel, checkRoleAdminAndLandlord, async (r
         landlordName,
         phoneNumberContact,
         addressLandlord,
-      };
+    };
 
     const currentDate = getCurrentDateFormatted();
 
-    
+
     const listImages = req.files.map(file => file.filename);
-    try { 
+    try {
         if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ message: 'No images uploaded' });
+            return res.status(400).json({ message: 'Không có ảnh tải lên!' });
         }
 
         // Kiểm tra user có tồn tại không
@@ -185,33 +173,49 @@ router.post('/api/motel', uploadImagesMotel, checkRoleAdminAndLandlord, async (r
         savedMotel.ListImages = imageIDs;
         await savedMotel.save();
 
-        // Cập nhật ListMotel trong Landlord với _id của Motel vừa được tạo
-        await Landlord.findByIdAndUpdate(
-            landlordID,
-            { $push: { ListMotels: savedMotel._id } }, // Thêm mới vào ListMotel của Landlord
-            { new: true }
-        );
+        if (landlordID) {
+            // Cập nhật ListMotel trong Landlord với _id của Motel vừa được tạo
+            await Landlord.findByIdAndUpdate(
+                landlordID, { $push: { ListMotels: savedMotel._id } }, // Thêm mới vào ListMotel của Landlord
+                { new: true }
+            );
+        }
 
         const populatedMotel = await Motel.findById(savedMotel._id).populate('ListImages').populate('ListConvenient');
 
-        res.status(201).json({ message: 'Motel created successfully', data: populatedMotel });
+        res.status(201).json({ message: 'Thêm thành công nhà trọ mới.', data: populatedMotel });
     } catch (error) {
         deleteImages(listImages);
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
 
 
 
 // update motel by ID
-router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async (req, res) => {
+router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async(req, res) => {
     const id = req.params.id;
     const {
-        userID, landlordID, location, address, wardCommune, description, listConvenient,
-        listOldImagesRemove, electricityBill, waterBill, wifiBill, liveWithLandlord, landlordName,
-        phoneNumberContact, addressLandlord, distance, price, nameMotel
+        userID,
+        landlordID,
+        location,
+        address,
+        wardCommune,
+        description,
+        listConvenient,
+        listOldImagesRemove,
+        electricityBill,
+        waterBill,
+        wifiBill,
+        liveWithLandlord,
+        landlordName,
+        phoneNumberContact,
+        addressLandlord,
+        distance,
+        price,
+        nameMotel
     } = req.body;
-    
+
     const transformedData = {
         userID,
         nameMotel,
@@ -220,7 +224,7 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
         address,
         wardCommune,
         description,
-        listConvenient: JSON.parse(listConvenient || '[]'), 
+        listConvenient: JSON.parse(listConvenient || '[]'),
         listOldImagesRemove: JSON.parse(listOldImagesRemove || '[]'),
         electricityBill: Number(electricityBill) || 0,
         waterBill: Number(waterBill) || 0,
@@ -241,22 +245,15 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
         // Tìm nhà trọ hiện tại theo ID
         const existingMotel = await Motel.findById(id);
         if (!existingMotel) {
-            deleteImages(images);  // Xóa ảnh đã tải lên nếu không tìm thấy nhà trọ
+            deleteImages(images); // Xóa ảnh đã tải lên nếu không tìm thấy nhà trọ
             return res.status(404).json({ message: 'Không tìm thấy nhà trọ cần cập nhật!' });
         }
 
         // Kiểm tra sự tồn tại của người dùng
         const existingUser = await User.findById(userID);
         if (!existingUser) {
-            deleteImages(images);  // Xóa ảnh đã tải lên nếu không tìm thấy người dùng
+            deleteImages(images); // Xóa ảnh đã tải lên nếu không tìm thấy người dùng
             return res.status(404).json({ message: 'Không tìm thấy người dùng!' });
-        }
-
-        // Kiểm tra sự tồn tại của chủ nhà
-        const existingLandlord = await Landlord.findById(landlordID);
-        if (!existingLandlord) {
-            deleteImages(images);  // Xóa ảnh đã tải lên nếu không tìm thấy chủ nhà
-            return res.status(404).json({ message: 'Không tìm thấy chủ trọ!' });
         }
 
 
@@ -287,7 +284,7 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
             }
         });
 
-        if(transformedData.wifiBill === null){
+        if (transformedData.wifiBill === null) {
             existingMotel.WifiBill = null;
         }
         // Cập nhật ngày chỉnh sửa và người chỉnh sửa
@@ -297,24 +294,24 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
         // Xóa ảnh cũ
         if (transformedData.listOldImagesRemove && transformedData.listOldImagesRemove.length > 0) {
             try {
-                const imageIdsToRemove = transformedData.listOldImagesRemove.map(id => new mongoose.Types.ObjectId(id));  // Chuyển chuỗi thành ObjectId đúng cách
+                const imageIdsToRemove = transformedData.listOldImagesRemove.map(id => new mongoose.Types.ObjectId(id)); // Chuyển chuỗi thành ObjectId đúng cách
                 const remainingImages = existingMotel.ListImages.filter(imageId => !imageIdsToRemove.includes(imageId.toString()));
                 // Truy vấn ảnh để xóa
-                const imagesToDelete = await Images.find({ _id: { $in: imageIdsToRemove } });  // Sử dụng ObjectId
+                const imagesToDelete = await Images.find({ _id: { $in: imageIdsToRemove } }); // Sử dụng ObjectId
 
                 if (imagesToDelete.length === 0) {
                     console.log("Không tìm thấy ảnh cần xóa.");
                 }
                 // Xóa ảnh khỏi thư mục và database
                 const imagesToDeletePaths = imagesToDelete.map(image => image.LinkImage);
-                deleteImages(imagesToDeletePaths);  // Xóa ảnh trên file system
-                await Images.deleteMany({ _id: { $in: imageIdsToRemove } });  // Xóa ảnh trong database
+                deleteImages(imagesToDeletePaths); // Xóa ảnh trên file system
+                await Images.deleteMany({ _id: { $in: imageIdsToRemove } }); // Xóa ảnh trong database
 
                 // Cập nhật lại ListImages sau khi xóa ảnh cũ
                 existingMotel.ListImages = remainingImages;
 
             } catch (error) {
-                console.error("Đã xảy ra lỗi:", error);  // In lỗi nếu có
+                console.error("Đã xảy ra lỗi:", error); // In lỗi nếu có
             }
         }
 
@@ -329,7 +326,7 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
                 const savedImage = await newImage.save();
                 imageIDs.push(savedImage._id);
             }
-            
+
             // Cập nhật lại ListImages, chỉ thêm các ảnh mới vào
             existingMotel.ListImages.push(...imageIDs);
 
@@ -337,7 +334,7 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
             await existingMotel.save();
         }
 
-         // Đảm bảo cập nhật xong tất cả dữ liệu
+        // Đảm bảo cập nhật xong tất cả dữ liệu
         await existingMotel.save();
 
         // Đảm bảo response trả về dữ liệu chính xác
@@ -352,46 +349,91 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
     }
 });
 
-
-
-//delete model by id
-router.delete('/api/motel/:id', async (req, res) => {
-    const id = req.params.id; 
+// Xóa mềm nhà trọ theo id
+router.delete('/api/motel-soft-delete/:id', async(req, res) => {
+    const id = req.params.id;
     try {
-        // Tìm motel theo ID
-        const existingMotel = await Motel.findById(id); 
+        // Tìm nhà trọ theo ID
+        const existingMotel = await Motel.findById(id);
         if (!existingMotel) {
-            return res.status(404).json({ message: 'Motel does not exist!' });
+            return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
         }
 
-        // Kiểm tra số lượng phòng trọ trong ListRooms
-        if (existingMotel.ListRooms.length > 0) {
-            return res.status(400).json({ message: 'The number of rooms in the motel must be 0 before deletion' });
+        // Kiểm tra số lượng phòng trọ trong danh sách phòng
+        if (existingMotel.ListRoomTypes.length > 0) {
+            return res.status(400).json({ message: 'Số lượng phòng trong nhà trọ phải bằng 0 trước khi xóa!' });
         }
 
-        // Xoá các ảnh liên quan đến motel trước khi xoá motel
-        const imageIds = existingMotel.ListImages.map(id => id.toHexString());
-        const imagesToDelete = await Promise.all(imageIds.map(async (id) => {
-            const image = await Images.findById(id);
-            return image ? image.LinkImage : null;
-        }));
+        // Cập nhật trường IsDelete cho nhà trọ
+        existingMotel.IsDelete = true;
 
-        if (imagesToDelete.length > 0) {
-            deleteImages(imagesToDelete);
-            await Images.deleteMany({ _id: { $in: imageIds } });
-        }
+        await existingMotel.save();
 
-        // Xoá motel
-        await Motel.findByIdAndDelete(id);
-        res.status(200).json({ message: 'Motel deleted successfully' });
+        res.status(200).json({ message: 'Xóa nhà trọ thành công.' });
 
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi máy chủ', error });
     }
 });
 
+
+
+//xoá cứng nhà trọ theo id
+router.delete('/api/motel-hard-delete/:id', async(req, res) => {
+    const id = req.params.id;
+
+    try {
+        // Tìm nhà trọ theo ID
+        const existingMotel = await Motel.findById(id);
+        if (!existingMotel) {
+            return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
+        }
+
+        // Tìm người tạo nhà trọ
+        const creator = await User.findById(existingMotel.CreateBy);
+        if (!creator) {
+            return res.status(404).json({ message: 'Không tìm thấy người tạo!' });
+        }
+
+        // Tìm chủ trọ dựa trên email
+        const landlord = await Landlord.findOne({ Email: creator.Email });
+        if (landlord) {
+            // Kiểm tra xem nhà trọ có trong danh sách của chủ trọ không
+            if (!landlord.ListMotels.includes(existingMotel._id)) {
+                return res.status(400).json({ message: 'Không tìm thấy nhà trọ trong danh sách chủ trọ!' });
+            }
+
+            // Xóa nhà trọ khỏi danh sách của chủ trọ
+            landlord.ListMotels = landlord.ListMotels.filter(
+                (motelId) => motelId.toString() !== existingMotel._id.toString()
+            );
+            await landlord.save();
+        }
+
+        // Lấy danh sách ảnh liên quan
+        const imagesToDelete = await Images.find({ _id: { $in: existingMotel.ListImages } });
+
+        if (imagesToDelete.length > 0) {
+            // Lấy link ảnh để xóa file
+            const imageLinks = imagesToDelete.map((img) => img.LinkImage);
+            deleteImages(imageLinks); // Hàm này cần xử lý lỗi nếu file không tồn tại
+
+            // Xóa các bản ghi ảnh
+            await Images.deleteMany({ _id: { $in: existingMotel.ListImages } });
+        }
+
+        // Xóa nhà trọ
+        await Motel.findByIdAndDelete(id);
+        res.status(200).json({ message: 'Xóa nhà trọ thành công!' });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi máy chủ', error });
+    }
+});
+
+
 // filter motel 
-router.get('/api/motels/filters', async (req, res) => {
+router.get('/api/motels/filters', async(req, res) => {
     const {
         addressSearch,
         motelHasRoomAvailable,
@@ -404,11 +446,11 @@ router.get('/api/motels/filters', async (req, res) => {
         havePlaceToCook,
         haveAirConditioner
     } = req.query;
-    
-    
+
+
     const filters = {
-        addressSearch, 
-        motelHasRoomAvailable: motelHasRoomAvailable === 'true', 
+        addressSearch,
+        motelHasRoomAvailable: motelHasRoomAvailable === 'true',
         noLiveWithLandlord: noLiveWithLandlord === 'true',
         desiredPrice: parseFloat(desiredPrice),
         distanceLess1Km: distanceLess1Km === 'true',
@@ -418,15 +460,15 @@ router.get('/api/motels/filters', async (req, res) => {
         havePlaceToCook: havePlaceToCook === 'true',
         haveAirConditioner: haveAirConditioner === 'true'
     };
-    
+
     const query = {
-        IsDelete : false
+        IsDelete: false
     };
 
-    if(filters.motelHasRoomAvailable){
-        query.TotalAvailableRoom =  { $gt: 0 }
+    if (filters.motelHasRoomAvailable) {
+        query.TotalAvailableRoom = { $gt: 0 }
     }
-  
+
     // Lọc theo addressSearch dựa trên WardCommune
     if (filters.addressSearch) {
         // Kiểm tra xem addressSearch có chứa dấu phẩy không
@@ -434,12 +476,12 @@ router.get('/api/motels/filters', async (req, res) => {
         // Nếu tìm thấy dấu phẩy, tìm theo từng phần riêng
         if (wardCommunePart) {
             query.$and = [
-                { Address: { $regex: addressPart, $options: 'i' } },  
-                { WardCommune: { $regex: wardCommunePart, $options: 'i' } } 
+                { Address: { $regex: addressPart, $options: 'i' } },
+                { WardCommune: { $regex: wardCommunePart, $options: 'i' } }
             ];
         } else {
             query.$or = [
-                { Address: { $regex: addressPart, $options: 'i' } },  
+                { Address: { $regex: addressPart, $options: 'i' } },
                 { WardCommune: { $regex: addressPart, $options: 'i' } }
             ];
         }
@@ -449,7 +491,7 @@ router.get('/api/motels/filters', async (req, res) => {
     if (filters.noLiveWithLandlord) {
         query.LiveWithLandlord = false;
     }
-    
+
     // Lọc nhà trọ với Distance dưới 1 km
     if (filters.distanceLess1Km) {
         query.Distance = { $lte: 1.0 };
@@ -459,7 +501,7 @@ router.get('/api/motels/filters', async (req, res) => {
     if (!filters.distanceLess1Km) {
         query.Distance = { $lte: filters.desiredDistance };
     }
-    
+
     // Lọc nhà trọ có giá dưới hoặc bằng desiredPrice
     if (filters.desiredPrice) {
         query.Price = { $lte: filters.desiredPrice };
@@ -486,7 +528,7 @@ router.get('/api/motels/filters', async (req, res) => {
     // Tìm trong ListConvenient có điều hòa
     if (filters.haveAirConditioner) {
         conditions.push({ NameConvenient: 'Điều hoà' });
-    } 
+    }
 
 
     try {
@@ -497,16 +539,15 @@ router.get('/api/motels/filters', async (req, res) => {
             .populate('ListConvenient')
 
         //Lọc theo ListConvenient nếu có điều kiện
-        const motelsLastFilter = conditions.length > 0 
-            ? motelsFirstFilter.filter(motel => 
-                conditions.every(condition => 
-                    motel.ListConvenient.some(convenient => 
-                        convenient.NameConvenient === condition.NameConvenient        
+        const motelsLastFilter = conditions.length > 0 ?
+            motelsFirstFilter.filter(motel =>
+                conditions.every(condition =>
+                    motel.ListConvenient.some(convenient =>
+                        convenient.NameConvenient === condition.NameConvenient
                     )
                 )
-            )
-            : motelsFirstFilter;
-
+            ) :
+            motelsFirstFilter;
 
         // Tạo một mảng mới chứa các motels với field 'totalStar'
         const motelsWithTotalStar = motelsLastFilter.map(motel => {
@@ -535,37 +576,34 @@ router.get('/api/motels/filters', async (req, res) => {
     }
 });
 
-// Get list ward commune motel
-router.get('/api/list-ward-commune', async (req, res) => {
+// Lấy danh sách xã, phường của nhà trọ
+router.get('/api/list-ward-commune', async(req, res) => {
     try {
-        // Find motel by ID and populate the related fields
-        let listWardCommune = []
-        let listStreet = []
-        const motels = await Motel.find()
-        listWardCommune = motels.map(motel => motel.WardCommune)
-        listStreet = motels.map(motel=> `${motel.Address}, ${motel.WardCommune}`)
+        // Tìm tất cả các nhà trọ và tạo danh sách các trường liên quan
+        let listWardCommune = [];
+        let listStreet = [];
+        const motels = await Motel.find();
+        listWardCommune = motels.map(motel => motel.WardCommune);
+        listStreet = motels.map(motel => `${motel.Address}, ${motel.WardCommune}`);
         listStreet = listStreet.map(street => street.replace(/^[^a-zA-ZÀ-ỹ]+|[^a-zA-ZÀ-ỹ]+$/g, '').trim());
-        listWardCommune = [...new Set(listWardCommune)]
-        listStreet = [...new Set(listStreet)]
-        let listStreetWardCommune = [...listWardCommune, ...listStreet]
+        listWardCommune = [...new Set(listWardCommune)];
+        listStreet = [...new Set(listStreet)];
+        let listStreetWardCommune = [...listWardCommune, ...listStreet];
 
-
-        res.status(200).json({ message: 'Get list ward commune successfully', data: listStreetWardCommune});
-
+        res.status(200).json({ message: 'Lấy danh sách xã/phường thành công', data: listStreetWardCommune });
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
 
-// Count motels by ward commune 
-router.get('/api/count-motels-by-ward-commune', async (req, res) => {
+// Đếm số lượng nhà trọ theo xã, phường
+router.get('/api/count-motels-by-ward-commune', async(req, res) => {
     try {
-        // Tìm tất cả các motels và nhóm theo WardCommune, đồng thời đếm số lượng trong mỗi nhóm
-        const countByWardCommune = await Motel.aggregate([
-            {
+        // Tìm tất cả nhà trọ và nhóm theo trường WardCommune, đồng thời đếm số lượng trong mỗi nhóm
+        const countByWardCommune = await Motel.aggregate([{
                 $group: {
                     _id: "$WardCommune", // Nhóm theo trường WardCommune
-                    Count: { $sum: 1 } // Đếm số lượng motels trong mỗi nhóm
+                    Count: { $sum: 1 } // Đếm số lượng nhà trọ trong mỗi nhóm
                 }
             },
             {
@@ -577,14 +615,15 @@ router.get('/api/count-motels-by-ward-commune', async (req, res) => {
             }
         ]);
 
-        res.status(200).json({ message: 'Get list ward commune successfully', data: countByWardCommune });
+        res.status(200).json({ message: 'Lấy danh sách số lượng nhà trọ theo xã/phường thành công', data: countByWardCommune });
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
 
-  
-router.get('/api/top-motels', async (req, res) => {
+
+
+router.get('/api/top-motels', async(req, res) => {
     try {
         // Lấy danh sách các motels chưa bị xóa, sắp xếp theo TotalRating giảm dần và giới hạn 8 cái
         const motels = await Motel.find({ IsDelete: false })
@@ -599,12 +638,12 @@ router.get('/api/top-motels', async (req, res) => {
         }
 
         res.status(200).json({
-            message: 'Get top 8 motels by TotalRating successfully',
+            message: 'Lấy top 8 nhà trọ theo đánh giá thành công.',
             data: motels
         });
 
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
 
