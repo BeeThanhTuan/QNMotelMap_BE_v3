@@ -16,6 +16,24 @@ function deleteImages(images){
     });
 }
 
+// get all room type
+router.get('/api/all-room-type', async (req, res) => {
+    try {
+        const roomTypes = await RoomType.find()
+        .populate('ListImages')
+        .populate('ListConvenient')
+
+        if (roomTypes.length <= 0) {
+            return res.status(404).json({ message: 'Không tìm thấy loại phòng!' });
+        }
+
+        res.status(200).json({ message: 'Lấy tất cả loại phòng thành công!', data: roomTypes });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server', error });
+    }
+});
+
 // get room by ID motel
 router.get('/api/room-types/:idMotel', async (req, res) => {
     const id = req.params.idMotel;
@@ -132,7 +150,7 @@ router.post('/api/room-type', checkRoleAdminAndLandlord, uploadImagesRoom, async
         await savedRoomType.save();
 
         // Cập nhật giá thấp nhất của nhà trọ
-        const allRooms = await RoomType.find({ MotelID: motelID });
+        const allRooms = await RoomType.find({ MotelID: motelID , IsDelete: false });
         const minPrice = allRooms.length > 0 ? Math.min(...allRooms.map(room => room.Price)) : price;
         existingMotel.Price = minPrice;
 
@@ -259,7 +277,7 @@ router.put('/api/room-type/:id', checkRoleAdminAndLandlord, uploadImagesRoom, as
         await existingRoomType.save();
 
         // Cập nhật giá thấp nhất và số phòng trống của nhà trọ
-        const allRooms = await RoomType.find({ MotelID: motelID });
+        const allRooms = await RoomType.find({ MotelID: motelID, IsDelete: false });
         const minPrice = allRooms.length > 0 ? Math.min(...allRooms.map(room => room.Price)) : transformedData.price;
         const totalAvailableRooms = allRooms.reduce((acc, roomType) => acc + roomType.Available, 0);
 
@@ -284,47 +302,76 @@ router.put('/api/room-type/:id', checkRoleAdminAndLandlord, uploadImagesRoom, as
     }
 });
 
+// delete room type by ID (Soft Delete)
+router.delete('/api/soft-delete-room-type/:id', checkRoleAdminAndLandlord, async (req, res) => {
+    const id = req.params.id;
+    const currentDate = getCurrentDateFormatted();
 
-//delete room by id
-router.delete('/api/room-type/:idRoomType', async (req, res) => {
-    const id = req.params.idRoomType; 
     try {
-        // Tìm room theo ID
-        const existingRoomType = await RoomType.findById(id); 
+        const existingUser = req.user;
+        // Kiểm tra sự tồn tại của loại phòng
+        const existingRoomType = await RoomType.findOne({_id: id, IsDelete:false});
         if (!existingRoomType) {
-            return res.status(404).json({ message: 'Room type does not exist!' });
+            return res.status(404).json({ message: 'Loại phòng không tồn tại!' });
         }
 
-        // Tìm motel chứa room
-        const existingMotel = await Motel.findById(existingRoomType.MotelID);
+        // Kiểm tra nhà trọ có tồn tại hay không
+        const existingMotel = await Motel.findOne({_id:existingRoomType.MotelID, IsDelete:false});
         if (!existingMotel) {
-            return res.status(404).json({ message: 'Motel does not exist!' });
+            return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
         }
 
-        // Xóa room ID khỏi ListRooms của Motel
-        existingMotel.ListRoomTypes = existingMotel.ListRoomTypes.filter(roomID => !roomID.equals(id));
+        // Cập nhật trạng thái IsDelete thành true
+        existingRoomType.IsDelete = true;
+        existingRoomType.UpdateAt = currentDate;
+        existingRoomType.UpdateBy = existingUser._id;
+
+        await existingRoomType.save();
+
+        // Cập nhật giá thấp nhất và tiện nghi của nhà trọ
+        const allRooms = await RoomType.find({ MotelID: existingMotel._id, IsDelete: false });
+        const minPrice = allRooms.length > 0 ? Math.min(...allRooms.map(room => room.Price)) : 0;
+        const totalAvailableRooms = allRooms.reduce((acc, roomType) => acc + roomType.Available, 0);
+
+        existingMotel.Price = minPrice;
+        existingMotel.TotalAvailableRoom = totalAvailableRooms;
+
+        // Tổng hợp và cập nhật danh sách tiện ích của nhà trọ
+        const allConveniences = allRooms.reduce((acc, room) => acc.concat(room.ListConvenient), []);
+        const combinedConveniences = Array.from(
+            new Set(allConveniences.map(id => id.toString()))
+        ).map(id => new mongoose.Types.ObjectId(id));
+
+        existingMotel.ListConvenient = combinedConveniences;
         await existingMotel.save();
 
-        // Xoá các ảnh liên quan đến room trước khi xoá room
-        const imageIds = existingRoomType.ListImages.map(id => id.toHexString());
-        const imagesToDelete = await Promise.all(imageIds.map(async (id) => {
-            const image = await Images.findById(id);
-            return image ? image.LinkImage : null;
-        }));
-
-        if (imagesToDelete.length > 0) {
-            deleteImages(imagesToDelete);
-            await Images.deleteMany({ _id: { $in: imageIds } });
-        }
-
-        // Xoá room
-        await RoomType.findByIdAndDelete(id);
-        res.status(200).json({ message: 'Room type deleted successfully' });
-
+        res.status(200).json({ message: 'Xoá mềm loại phòng thành công' });
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi hệ thống', error });
     }
 });
+
+
+// Hard Delete Room Type by ID
+router.delete('/api/hard-delete-room-type/:id', checkRoleAdminAndLandlord, async (req, res) => {
+    const id = req.params.id;
+
+    try {
+        // Kiểm tra loại phòng có tồn tại và đã bị xóa mềm
+        const existingRoomType = await RoomType.findOne({ _id: id, IsDelete: true });
+        if (!existingRoomType) {
+            return res.status(404).json({ message: 'Loại phòng không tồn tại hoặc chưa được xóa mềm!' });
+        }
+
+        // Xóa hoàn toàn loại phòng
+        await RoomType.deleteOne({ _id: id });
+
+        res.status(200).json({ message: 'Xóa hoàn toàn loại phòng thành công' });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi hệ thống', error });
+    }
+});
+
 
 
 module.exports = router;

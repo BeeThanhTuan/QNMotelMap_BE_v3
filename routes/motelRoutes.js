@@ -350,31 +350,42 @@ router.put('/api/motel/:id', uploadImagesMotel, checkRoleAdminAndLandlord, async
 });
 
 // Xóa mềm nhà trọ theo id
-router.delete('/api/motel-soft-delete/:id', async(req, res) => {
-    const id = req.params.id;
+router.delete('/api/motel-soft-delete/:id', checkRoleAdminAndLandlord, async (req, res) => {
+    const id = req.params.id; // Lấy ID nhà trọ từ URL
+    const currentDate = getCurrentDateFormatted();
+
     try {
+        // Lấy thông tin user từ middleware
+        const existingUser = req.user;
+
         // Tìm nhà trọ theo ID
-        const existingMotel = await Motel.findById(id);
+        const existingMotel = await Motel.findOne({_id: id, IsDelete:false});
         if (!existingMotel) {
             return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
         }
 
-        // Kiểm tra số lượng phòng trọ trong danh sách phòng
+        // Kiểm tra danh sách phòng trọ
         if (existingMotel.ListRoomTypes.length > 0) {
             return res.status(400).json({ message: 'Số lượng phòng trong nhà trọ phải bằng 0 trước khi xóa!' });
         }
 
-        // Cập nhật trường IsDelete cho nhà trọ
+        // Cập nhật trạng thái xóa mềm
         existingMotel.IsDelete = true;
+        existingMotel.UpdateBy = existingUser._id; // Sử dụng ID người dùng từ middleware
+        existingMotel.UpdateAt = currentDate;
 
         await existingMotel.save();
 
-        res.status(200).json({ message: 'Xóa nhà trọ thành công.' });
+        res.status(200).json({ 
+            message: 'Xóa mềm nhà trọ thành công.', 
+            data: existingMotel 
+        });
 
     } catch (error) {
         res.status(500).json({ message: 'Lỗi máy chủ', error });
     }
 });
+
 
 
 
