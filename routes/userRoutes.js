@@ -10,7 +10,7 @@ const getCurrentDateFormatted = require('../getDate/getDateNow');
 // Get all users
 router.get('/api/users', async (req, res) => {
     try {
-        const users = await User.find({IsDelete: false}).select('-Password');; 
+        const users = await User.find({IsDelete: false}).select('-Password').populate('RoleID');
         if (users.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }  
