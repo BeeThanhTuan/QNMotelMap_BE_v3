@@ -172,113 +172,118 @@ router.post('/api/user-role-admin', checkRoleAdmin, uploadImageUser, async(req, 
     }
 });
 
-// update user by id with role admin
-router.put('/api/user-role-admin', checkRoleAdmin, uploadImageUser, async(req, res) => {
+
+//update user by email role admin
+router.put('/api/user-role-admin', checkRoleAdmin, uploadImageUser, async (req, res) => {
     const { username, email, phoneNumber, address, roleID } = req.body;
-    const image = req.file ? req.file.filename : '';
+    const newImage = req.file ? req.file.filename : '';
 
     try {
         const userUpdate = req.user;
+
         // Tìm user theo email
         const existingUser = await User.findOne({ Email: email });
         if (!existingUser) {
-            deleteImageUser(image);
+            if (newImage) deleteImageUser(newImage);
             return res.status(404).json({ message: 'Người dùng không tìm thấy!' });
         }
 
-        // Kiểm tra roleID có hợp lệ hay không
+        // Kiểm tra roleID hợp lệ
         if (roleID && !mongoose.isValidObjectId(roleID)) {
-            deleteImageUser(image);
+            if (newImage) deleteImageUser(newImage);
             return res.status(400).json({ message: 'Role ID không hợp lệ!' });
         }
 
-        // Kiểm tra role hợp lệ nếu có roleID
+        // Kiểm tra role nếu có roleID
         if (roleID) {
             const role = await Role.findById(roleID);
             if (!role) {
-                deleteImageUser(image);
+                if (newImage) deleteImageUser(newImage);
                 return res.status(400).json({ message: 'Role không hợp lệ!' });
             }
 
-             // Kiểm tra nếu vai trò ban đầu là Landlord và vai trò mới không phải Landlord
-             const oldRole = await Role.findById(existingUser.RoleID);
-             if (oldRole && oldRole.RoleName === 'Landlord' && role.RoleName !== 'Landlord') {
-                 const landlord = await Landlord.findOne({ Email: email });
- 
-                 if (landlord && landlord.ListMotels && landlord.ListMotels.length > 0) {
-                     deleteImageUser(image);
-                     return res.status(400).json({
-                         message: 'Không thể thay đổi vai trò. Landlord vẫn đang quản lý các nhà trọ!'
-                     });
-                 }
- 
-                 // Xóa thông tin Landlord nếu không có motels
-                 await Landlord.findOneAndDelete({ Email: email });
-             }
-
-            // Nếu role là Landlord, cập nhật hoặc tạo mới thông tin Landlord
-            if (role.RoleName === 'Landlord') {
+            // Nếu vai trò ban đầu là Landlord và vai trò mới không phải Landlord
+            const oldRole = await Role.findById(existingUser.RoleID);
+            if (oldRole?.RoleName === 'Landlord' && role.RoleName !== 'Landlord') {
                 const landlord = await Landlord.findOne({ Email: email });
 
+                if (landlord?.ListMotels?.length > 0) {
+                    if (newImage) deleteImageUser(newImage);
+                    return res.status(400).json({
+                        message: 'Không thể thay đổi vai trò. Landlord vẫn đang quản lý các nhà trọ!',
+                    });
+                }
+
+                // Xóa thông tin Landlord nếu không còn nhà trọ
+                await Landlord.findOneAndDelete({ Email: email });
+            }
+
+            // Nếu role mới là Landlord, cập nhật hoặc tạo mới Landlord
+            if (role.RoleName === 'Landlord') {
+                const landlord = await Landlord.findOne({ Email: email });
+                const currentDate = getCurrentDateFormatted();
+
                 if (landlord) {
-                    // Nếu đã có Landlord, cập nhật thông tin
+                    // Cập nhật thông tin Landlord
                     if (username) landlord.LandlordName = username;
-                    if (image) landlord.Image = image;
+                    if (newImage) landlord.Image = newImage;
                     if (address) landlord.Address = address;
                     if (phoneNumber) landlord.PhoneNumber = phoneNumber;
-                    landlord.UpdateAt = getCurrentDateFormatted();
+                    landlord.UpdateAt = currentDate;
                     landlord.UpdateBy = userUpdate._id;
 
                     await landlord.save();
                 } else {
-                    // Nếu chưa có, tạo mới Landlord
+                    // Tạo mới Landlord
                     const newLandlord = new Landlord({
                         LandlordName: username || existingUser.Username,
                         Email: email,
-                        Image: image,
+                        Image: newImage,
                         Address: address,
                         PhoneNumber: phoneNumber,
-                        CreateAt: getCurrentDateFormatted(),
+                        CreateAt: currentDate,
                     });
                     await newLandlord.save();
                 }
             }
         }
 
-        const updateDate = getCurrentDateFormatted();
+        // Cập nhật thông tin user
+        const currentDate = getCurrentDateFormatted();
 
-        // Cập nhật các trường nếu có thay đổi
         if (username) existingUser.Username = username;
         if (roleID) existingUser.RoleID = roleID;
         if (phoneNumber) existingUser.PhoneNumber = phoneNumber;
         if (address) existingUser.Address = address;
 
-        // Cập nhật hình ảnh nếu có hình ảnh mới
-        if (image) {
+        // Xử lý ảnh mới
+        if (newImage) {
             if (existingUser.Image) {
                 deleteImageUser(existingUser.Image); // Xóa ảnh cũ
             }
-            existingUser.Image = image;
+            existingUser.Image = newImage;
         }
 
         // Cập nhật thời gian sửa đổi
-        existingUser.UpdateAt = updateDate;
+        existingUser.UpdateAt = currentDate;
         existingUser.UpdateBy = userUpdate._id;
 
         // Lưu thay đổi
         await existingUser.save();
-        const newUserUpdate = await User.findById(existingUser._id).select('-Password').populate('RoleID');
-        res.status(200).json({ message: 'Cập nhật người dùng thành công!', data: newUserUpdate });
 
+        // Lấy thông tin user sau cập nhật
+        const updatedUser = await User.findById(existingUser._id).select('-Password').populate('RoleID');
+        res.status(200).json({ message: 'Cập nhật người dùng thành công!', data: updatedUser });
     } catch (error) {
+        if (newImage) deleteImageUser(newImage); // Xóa ảnh mới trong trường hợp lỗi
         res.status(500).json({ message: 'Lỗi hệ thống', error });
     }
 });
 
+
 //sort delete user
 router.delete('/api/soft-delete-user/:email', checkRoleAdmin, async (req, res) => {
     const { email } = req.params;
-    console.log(email);
     const updateDate = getCurrentDateFormatted();
     
     try {
@@ -312,7 +317,7 @@ router.delete('/api/soft-delete-user/:email', checkRoleAdmin, async (req, res) =
             }
         }
         user.UpdateAt = updateDate;
-        user.UpdateAt = userUpdate._id
+        user.UpdateBy = userUpdate._id
         // Lưu thay đổi người dùng
         await user.save();
         // Phản hồi thành công
