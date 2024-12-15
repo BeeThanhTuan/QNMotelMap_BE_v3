@@ -14,7 +14,7 @@ const checkRoleAdmin = async (req, res, next) => {
         const email = decoded.email;
 
         // Find the user in the database
-        const existingUser = await User.findOne({ Email: email });
+        const existingUser = await User.findOne({ Email: email,IsDelete: false});
 
         if (!existingUser) {
             return res.status(404).json({ message: 'User does not exist!' });

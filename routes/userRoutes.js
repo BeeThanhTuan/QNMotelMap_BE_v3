@@ -7,6 +7,7 @@ const Landlord = require('../models/landlordModel');
 const { uploadImageUser, deleteImageUser } = require('../upload-image/uploadImgUser');
 const getCurrentDateFormatted = require('../getDate/getDateNow');
 const checkRoleAdmin = require('../middleware/checkRoleAdmin');
+const checkUser = require('../middleware/checkUser');
 
 // Lấy danh sách tất cả người dùng
 router.get('/api/users', async(req, res) => {
@@ -362,6 +363,55 @@ router.delete('/api/hard-delete-user', checkRoleAdmin,  async(req, res) => {
         res.status(500).json({ message: 'Lỗi server', error });
     }
 });
+
+
+router.put('/api/user-update-image', checkUser, uploadImageUser, async (req, res) => {
+    try {
+        const userUpdate = req.user; // Lấy thông tin người dùng từ middleware
+        const newImage = req.file ? req.file.filename : '';  
+        if (!userUpdate) {
+            if (newImage) deleteImageUser(newImage); // Xóa ảnh mới nếu không tìm thấy user
+            return res.status(404).json({ message: 'Người dùng không tồn tại!' });
+        }
+
+        // Kiểm tra nếu vai trò là Landlord
+        const role = await Role.findById(userUpdate.RoleID);
+        if (role?.RoleName === 'Landlord') {
+            const landlord = await Landlord.findOne({ Email: userUpdate.Email, IsDelete: false });
+            if (landlord) {
+                if (landlord.Image) {
+                    deleteImageUser(landlord.Image); // Xóa ảnh cũ của Landlord nếu có
+                }
+                landlord.Image = newImage; // Cập nhật ảnh mới
+                landlord.UpdateAt = getCurrentDateFormatted();
+                await landlord.save();
+            }
+        }
+
+        // Cập nhật thông tin ảnh trong User
+        if (newImage) {
+            if (userUpdate.Image) {
+                deleteImageUser(userUpdate.Image); // Xóa ảnh cũ nếu có
+            }
+            userUpdate.Image = newImage;
+        }
+
+        // Cập nhật thời gian sửa đổi
+        userUpdate.UpdateAt = getCurrentDateFormatted();
+        userUpdate.UpdateBy = userUpdate._id;
+
+        // Lưu thay đổi
+        await userUpdate.save();
+
+        // Trả về thông tin người dùng sau cập nhật
+        const updatedUser = await User.findById(userUpdate._id).select('-Password');
+        res.status(200).json({ message: 'Cập nhật ảnh thành công!', data: updatedUser });
+    } catch (error) {
+        if (req.file) deleteImageUser(req.file.filename); // Xóa ảnh mới trong trường hợp lỗi
+        res.status(500).json({ message: 'Lỗi hệ thống', error });
+    }
+});
+
 
 
 module.exports = router;

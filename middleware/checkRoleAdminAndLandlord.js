@@ -14,7 +14,7 @@ const checkRoleAdminAndLandlord = async (req, res, next) => {
         const email = decoded.email; 
 
         // Tìm người dùng trong database
-        const existingUser = await User.findOne({Email: email})
+        const existingUser = await User.findOne({Email: email, IsDelete: false})
         
         if (!existingUser) {
             return res.status(404).json({ message: 'User does not exist!' });
