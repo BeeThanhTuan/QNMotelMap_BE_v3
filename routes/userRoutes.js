@@ -412,6 +412,67 @@ router.put('/api/user-update-image', checkUser, uploadImageUser, async (req, res
     }
 });
 
+//update info user
+router.put('/api/user-update-info', checkUser, async (req, res) => {
+    try {
+        const { address, username, phoneNumber } = req.body; // Lấy dữ liệu cần cập nhật từ body
+        const userUpdate = req.user; // Lấy thông tin người dùng từ middleware
+
+        if (!userUpdate) {
+            return res.status(404).json({ message: 'Người dùng không tồn tại!' });
+        }
+
+        // Kiểm tra nếu vai trò là Landlord
+        const role = await Role.findById(userUpdate.RoleID);
+        if (role?.RoleName === 'Landlord') {
+            const landlord = await Landlord.findOne({ Email: userUpdate.Email, IsDelete: false });
+            if (landlord) {
+                if (address) {
+                    landlord.Address = address;
+                }
+
+                if (username) {
+                    landlord.Username = username;
+                }
+
+                if (phoneNumber) {
+                    landlord.PhoneNumber = phoneNumber;
+                }
+
+                landlord.UpdateAt = getCurrentDateFormatted();
+                await landlord.save();
+            }
+        }
+
+        // Cập nhật các trường được chỉ định nếu chúng tồn tại trong body
+        if (address) {
+            userUpdate.Address = address;
+        }
+
+        if (username) {
+            userUpdate.Username = username;
+        }
+
+        if (phoneNumber) {
+            userUpdate.PhoneNumber = phoneNumber;
+        }
+
+        // Cập nhật thời gian sửa đổi và người sửa đổi
+        userUpdate.UpdateAt = getCurrentDateFormatted();
+        userUpdate.UpdateBy = userUpdate._id;
+
+        // Lưu thay đổi
+        await userUpdate.save();
+
+        // Trả về thông tin người dùng sau khi cập nhật
+        const updatedUser = await User.findById(userUpdate._id).select('-Password');
+        res.status(200).json({ message: 'Cập nhật thông tin thành công!', data: updatedUser });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi hệ thống', error });
+    }
+});
+
+
 
 
 module.exports = router;

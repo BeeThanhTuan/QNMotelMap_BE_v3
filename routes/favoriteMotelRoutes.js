@@ -3,99 +3,121 @@ const router = express.Router();
 const User = require('../models/userModel');
 const Motel = require('../models/motelModel');
 const FavoriteMotel = require('../models/favoriteMotelModel');
+const checkUser = require('../middleware/checkUser');
 
 
 // get favorites list motel for user by id user
-router.get('/api/favorite/:id', async (req, res) => {
-    const userID = req.params.id;
+router.get('/api/favorite-motels', checkUser, async (req, res) => {
     try {
-        const existingFavoriteMotel = await FavoriteMotel.findOne({UserID: userID})
-            .populate('ListMotels')
+        const existingUser = req.user
+        if(!existingUser){
+            return res.status(404).json({ message: 'Người dùng không tồn tại.!' });
+        }
+        const existingFavoriteMotel = await FavoriteMotel.findOne({UserID: existingUser._id})
+        .populate({
+            path: 'ListMotels',
+            populate: {
+                path: 'ListImages', 
+            }
+        });
 
         if (!existingFavoriteMotel) {
-            return res.status(404).json({ message: 'Favorites motel does not exist!' });
+            return res.status(404).json({ message: 'Nhà trọ yêu thích không tồn tại!' });
         }
 
-        res.status(200).json({ message: 'Get favorites list motel for user successfully', data: existingFavoriteMotel});
+        res.status(200).json({ message: 'Lấy danh sách nhà trọ yêu thích cho người dùng thành công', data: existingFavoriteMotel});
 
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
 
 //add new motel into favorites list
-router.post('/api/favorite', async (req, res) => {
-    const { userID, motelID } = req.body;
-    
+router.post('/api/favorite-motel/:idMotel', checkUser, async (req, res) => {
+    const idMotel = req.params.idMotel;
     try {
-        // Kiểm tra xem motel có tồn tại không
-        const existingMotel = await Motel.findById(motelID);
-        if (!existingMotel) {
-            return res.status(404).json({ message: 'Motel does not exist!' });
+        const existingUser = req.user
+        if(!existingUser){
+            return res.status(404).json({ message: 'Người dùng không tồn tại!' });
         }
-
-
-        // Kiểm tra user có tồn tại không
-        const existingUser = await User.findById(userID);
-        if (!existingUser) {
-            return res.status(404).json({ message: 'User does not exist!' });
+        // Kiểm tra xem motel có tồn tại không
+        const existingMotel = await Motel.findById(idMotel);
+        if (!existingMotel) {
+            return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
         }
 
         // Kiểm tra xem người dùng đã có danh sách yêu thích hay chưa
-        let favoriteMotel = await FavoriteMotel.findOne({ UserID: userID });
+        let favoriteMotels = await FavoriteMotel.findOne({ UserID: existingUser._id });
         
         // Nếu chưa có, tạo mới danh sách yêu thích
-        if (!favoriteMotel) {
-            favoriteMotel = new FavoriteMotel({
+        if (!favoriteMotels) {
+            favoriteMotels = new FavoriteMotel({
                 UserID: existingUser._id,
                 ListMotels: [existingMotel._id]  // Thêm MotelID vào danh sách yêu thích
             });
         } else {
             // Nếu đã có, thêm motel vào danh sách yêu thích nếu chưa có
-            if (!favoriteMotel.ListMotels.includes(motelID)) {
-                favoriteMotel.ListMotels.push(motelID);
+            if (!favoriteMotels.ListMotels.includes(idMotel)) {
+                favoriteMotels.ListMotels.push(idMotel);
             } else {
-                return res.status(400).json({ message: 'Motel is already in the favorite list!' });
+                return res.status(400).json({ message: 'Nhà trọ đã có trong danh sách yêu thích!' });
             }
         }
 
         // Lưu danh sách yêu thích
-        await favoriteMotel.save();
-        res.status(201).json({ message: 'Add motel into favorite list success!', data: favoriteMotel });
+        await favoriteMotels.save();
+        const currentFavoriteMotels = await FavoriteMotel.findById(favoriteMotels._id).populate({
+            path: 'ListMotels',
+            populate: {
+                path: 'ListImages',
+            }
+        });
+        res.status(201).json({ message: 'Thêm nhà nhà trọ vào danh sách yêu thích thành công!', data: currentFavoriteMotels });
 
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
 
-//remove the motel from your favorites list by id
-router.delete('/api/favorite', async (req, res) => {
-    const { userID, motelID } = req.body;
-    
+// Remove a motel from the favorites list
+router.delete('/api/favorite-motel/:idMotel', checkUser, async (req, res) => {
+    const idMotel = req.params.idMotel;
     try {
-        // Kiểm tra xem danh sách yêu thích của người dùng có tồn tại không
-        const existingFavoriteMotel = await FavoriteMotel.findOne({ UserID: userID });
-        if (!existingFavoriteMotel) {
-            return res.status(404).json({ message: 'Favorite list does not exist!' });
+        const existingUser = req.user;
+        if (!existingUser) {
+            return res.status(404).json({ message: 'Người dùng không tồn tại!' });
         }
 
-        // Kiểm tra xem motel có tồn tại trong danh sách yêu thích không
-        if (!existingFavoriteMotel.ListMotels.includes(motelID)) {
-            return res.status(404).json({ message: 'Motel is not in the favorite list!' });
+        // Kiểm tra xem người dùng đã có danh sách yêu thích hay chưa
+        const favoriteMotels = await FavoriteMotel.findOne({ UserID: existingUser._id });
+
+        if (!favoriteMotels) {
+            return res.status(404).json({ message: 'Danh sách yêu thích không tồn tại!' });
         }
 
         // Xóa nhà trọ khỏi danh sách yêu thích
-        existingFavoriteMotel.ListMotels = existingFavoriteMotel.ListMotels.filter(motel => motel.toString() !== motelID);
+        const motelIndex = favoriteMotels.ListMotels.indexOf(idMotel);
+        if (motelIndex !== -1) {
+            favoriteMotels.ListMotels.splice(motelIndex, 1); // Xóa phần tử khỏi mảng
+        } else {
+            return res.status(404).json({ message: 'Nhà trọ không tồn tại trong danh sách yêu thích!' });
+        }
 
-        // Lưu lại thay đổi
-        await existingFavoriteMotel.save();
+        // Lưu lại danh sách yêu thích sau khi xóa
+        await favoriteMotels.save();
 
-        res.status(200).json({ message: 'Motel removed from favorite list successfully', data: existingFavoriteMotel });
-
+        const currentFavoriteMotels = await FavoriteMotel.findById(favoriteMotels._id).populate({
+            path: 'ListMotels',
+            populate: {
+                path: 'ListImages',
+            }
+        });
+        res.status(200).json({ message: 'Xóa nhà trọ khỏi danh sách yêu thích thành công!', data: currentFavoriteMotels });
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Lỗi server', error });
     }
 });
+
 
 
 
