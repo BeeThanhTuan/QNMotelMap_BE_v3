@@ -472,6 +472,61 @@ router.put('/api/user-update-info', checkUser, async (req, res) => {
     }
 });
 
+router.get('/api/count-users', async (req, res) => {
+    try {
+        // Truy vấn Aggregate để đếm người dùng theo RoleName
+        const usersCountByRole = await User.aggregate([
+            { 
+                $match: { IsDelete: false }  // Lọc người dùng không bị xóa
+            },
+            { 
+                $lookup: { 
+                    from: 'Role',       // là tên collection chứa dữ liệu Role
+                    localField: 'RoleID', // Trường trong collection User
+                    foreignField: '_id',  // Trường trong collection Role
+                    as: 'role'            // Alias cho kết quả
+                }
+            },
+            { 
+                $unwind: '$role'  // Giải nén mảng 'role' từ giai đoạn lookup
+            },
+            { 
+                $group: { 
+                    _id: '$role.RoleName',  // Nhóm theo RoleName
+                    count: { $sum: 1 }      // Đếm số người dùng theo mỗi vai trò
+                }
+            }
+        ]);
+
+        // Khởi tạo đối tượng CountUsers
+        const countUsers = {
+            client: 0,
+            landlord: 0,
+            admin: 0
+        };
+
+        // Gán giá trị đếm vào từng vai trò
+        usersCountByRole.forEach(roleCount => {
+            if (roleCount._id === 'Client') {
+                countUsers.client = roleCount.count;
+            } else if (roleCount._id === 'Landlord') {
+                countUsers.landlord = roleCount.count;
+            } else if (roleCount._id === 'Admin') {
+                countUsers.admin = roleCount.count;
+            }
+        });
+
+        // Trả về kết quả
+        res.status(200).json({ message: 'Lấy danh sách người dùng theo vai trò thành công!', data: countUsers });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server', error });
+    }
+});
+
+
+
+
 
 
 

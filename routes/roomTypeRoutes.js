@@ -19,7 +19,7 @@ function deleteImages(images){
 // get all room type
 router.get('/api/all-room-type', async (req, res) => {
     try {
-        const roomTypes = await RoomType.find()
+        const roomTypes = await RoomType.find({IsDelete: false} )
         .populate('ListImages')
         .populate('ListConvenient')
 
@@ -369,6 +369,38 @@ router.delete('/api/hard-delete-room-type/:id', checkRoleAdminAndLandlord, async
         res.status(200).json({ message: 'Xóa hoàn toàn loại phòng thành công' });
     } catch (error) {
         res.status(500).json({ message: 'Lỗi hệ thống', error });
+    }
+});
+
+// Đếm tổng số lượng phòng và số phòng trống, bỏ qua các nhà trọ có IsDelete: true
+router.get('/api/count-rooms', async (req, res) => {
+    try {
+        const roomSummary = await RoomType.aggregate([
+            {
+                $match: { IsDelete: { $ne: true } } 
+            },
+            {
+                $group: {
+                    _id: null,                       // Không nhóm theo trường nào cả
+                    TotalRooms: { $sum: "$Amount" }, 
+                    AvailableRooms: { $sum: "$Available" } 
+                }
+            },
+            {
+                $project: {
+                    _id: 0,               // Ẩn trường _id
+                    TotalRooms: 1,        // Tổng số lượng phòng
+                    AvailableRooms: 1     // Tổng số phòng trống
+                }
+            }
+        ]);
+
+        res.status(200).json({
+            message: 'Lấy tổng số lượng phòng và số phòng trống thành công',
+            data: roomSummary[0] || { TotalRooms: 0, AvailableRooms: 0 } // Trả về mặc định nếu không có dữ liệu
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server',error});
     }
 });
 

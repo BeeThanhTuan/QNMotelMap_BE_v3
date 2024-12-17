@@ -611,7 +611,11 @@ router.get('/api/list-ward-commune', async(req, res) => {
 router.get('/api/count-motels-by-ward-commune', async(req, res) => {
     try {
         // Tìm tất cả nhà trọ và nhóm theo trường WardCommune, đồng thời đếm số lượng trong mỗi nhóm
-        const countByWardCommune = await Motel.aggregate([{
+        const countByWardCommune = await Motel.aggregate([
+            {
+                $match: { IsDelete: { $ne: true } } // Lọc ra các nhà trọ không có IsDelete: true
+            },
+            {
                 $group: {
                     _id: "$WardCommune", // Nhóm theo trường WardCommune
                     Count: { $sum: 1 } // Đếm số lượng nhà trọ trong mỗi nhóm
@@ -623,6 +627,9 @@ router.get('/api/count-motels-by-ward-commune', async(req, res) => {
                     WardCommune: "$_id",
                     Count: 1
                 }
+            },
+            {
+                $sort: { Count: -1 } // Sắp xếp theo Count giảm dần
             }
         ]);
 
