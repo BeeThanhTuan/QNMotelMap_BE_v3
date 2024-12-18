@@ -358,15 +358,16 @@ router.delete('/api/motel-soft-delete/:id', checkRoleAdminAndLandlord, async (re
         // Lấy thông tin user từ middleware
         const existingUser = req.user;
 
-        // Tìm nhà trọ theo ID
-        const existingMotel = await Motel.findOne({_id: id, IsDelete:false});
+        // Tìm nhà trọ theo ID và populate danh sách phòng trọ
+        const existingMotel = await Motel.findOne({ _id: id, IsDelete: false }).populate('ListRoomTypes');
         if (!existingMotel) {
             return res.status(404).json({ message: 'Nhà trọ không tồn tại!' });
         }
 
-        // Kiểm tra danh sách phòng trọ
-        if (existingMotel.ListRoomTypes.length > 0) {
-            return res.status(400).json({ message: 'Số lượng phòng trong nhà trọ phải bằng 0 trước khi xóa!' });
+        // Kiểm tra danh sách phòng trọ và trạng thái xóa
+        const hasActiveRoomTypes = existingMotel.ListRoomTypes.some(roomType => !roomType.IsDelete);
+        if (hasActiveRoomTypes) {
+            return res.status(400).json({ message: 'Phải xóa tất cả các phòng trong nhà trọ trước khi thực hiện xóa mềm!' });
         }
 
         // Cập nhật trạng thái xóa mềm
@@ -385,6 +386,7 @@ router.delete('/api/motel-soft-delete/:id', checkRoleAdminAndLandlord, async (re
         res.status(500).json({ message: 'Lỗi máy chủ', error });
     }
 });
+
 
 
 
